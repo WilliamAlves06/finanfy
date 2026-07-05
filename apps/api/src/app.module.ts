@@ -1,12 +1,25 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AuditModule } from './common/audit/audit.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CardsModule } from './modules/cards/cards.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ChannelsModule } from './modules/channels/channels.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { ClientsModule } from './modules/clients/clients.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
+import { GoalsModule } from './modules/goals/goals.module';
 import { HealthModule } from './modules/health/health.module';
+import { IncomesModule } from './modules/incomes/incomes.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RecurringModule } from './modules/recurring/recurring.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { ReserveModule } from './modules/reserve/reserve.module';
 
 @Module({
   imports: [
@@ -22,10 +35,23 @@ import { HealthModule } from './modules/health/health.module';
     }),
     // rate limit global (100 req/min); rotas sensíveis têm limites próprios — docs/09
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ScheduleModule.forRoot(), // crons: 18h receita, 8h vencimentos, mensal recorrentes
     PrismaModule,
     AuditModule,
     AuthModule,
     HealthModule,
+    CategoriesModule,
+    ClientsModule,
+    IncomesModule,
+    ExpensesModule,
+    ReserveModule,
+    CardsModule,
+    RecurringModule,
+    GoalsModule,
+    ReportsModule,
+    ChatModule,
+    ChannelsModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
