@@ -1,0 +1,455 @@
+// Finanfy — Prisma schema
+// Convenções: dinheiro em CENTAVOS (Int). Soft delete via deletedAt. Multi-tenant por userId.
+// Provider Postgres (Supabase). Ver docs/03 e docs/04.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Supabase: pooler + direta p/ migrations
+}
+
+// ─────────────────────────── ENUMS ───────────────────────────
+
+enum IncomeSource {
+  DIARIA
+  PIX
+  SALARIO
+  VENDA
+  OUTRO
+}
+
+enum PaymentMethod {
+  DINHEIRO
+  SALDO
+  CAIXINHA
+  CARTAO
+  PIX
+}
+
+enum ChannelProvider {
+  TELEGRAM
+  WEB
+  WHATSAPP
+  ANDROID
+  API
+}
+
+enum ReserveMovementType {
+  IN
+  OUT
+}
+
+enum RecurringChargeStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum InvoiceStatus {
+  OPEN
+  CLOSED
+  PAID
+}
+
+enum NotificationType {
+  NO_INCOME_TODAY
+  BILL_DUE
+  INVOICE_DUE
+  NEGATIVE_BALANCE
+  GOAL_REACHED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum Weekday {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+// ─────────────────────────── CORE / AUTH ───────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  timezone     String   @default("America/Sao_Paulo")
+  locale       String   @default("pt-BR")
+
+  // saldo disponível em centavos (derivável, mas materializado p/ leitura rápida)
+  balanceCents Int      @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  refreshTokens    RefreshToken[]
+  channelIdentities ChannelIdentity[]
+  clients          Client[]
+  categories       Category[]
+  incomes          Income[]
+  expenses         Expense[]
+  cards            Card[]
+  recurringBills   RecurringBill[]
+  reserve          Reserve?
+  goals            Goal[]
+  conversations    Conversation[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+
+  @@index([deletedAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model ChannelIdentity {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  provider   ChannelProvider
+  externalId String // ex.: chat id do Telegram
+  createdAt  DateTime        @default(now())
+  deletedAt  DateTime?
+
+  @@unique([provider, externalId])
+  @@index([userId])
+}
+
+// ─────────────────────────── CLIENTES ───────────────────────────
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  phone     String?
+  notes     String?
+  weekdays  Weekday[] // dias que costuma trabalhar p/ este cliente
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  incomes Income[]
+
+  @@index([userId, deletedAt])
+}
+
+// ─────────────────────────── CATEGORIAS ───────────────────────────
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  kind      String // "INCOME" | "EXPENSE" | "BOTH"
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  incomes        Income[]
+  expenses       Expense[]
+  recurringBills RecurringBill[]
+
+  @@index([userId, deletedAt])
+}
+
+// ─────────────────────────── RECEITAS ───────────────────────────
+
+model Income {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  amountCents Int
+  source     IncomeSource
+  date       DateTime        @db.Date // sempre = hoje (sem retroativo)
+  note       String?
+  channel    ChannelProvider @default(WEB)
+
+  clientId   String?
+  client     Client?   @relation(fields: [clientId], references: [id])
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, date])
+  @@index([userId, deletedAt])
+}
+
+// ─────────────────────────── DESPESAS ───────────────────────────
+
+model Expense {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  amountCents Int
+  method     PaymentMethod // sempre perguntada, nunca inferida
+  date       DateTime        @db.Date
+  note       String?
+  channel    ChannelProvider @default(WEB)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  cardId String?
+  card   Card?   @relation(fields: [cardId], references: [id])
+
+  installmentId String?      @unique
+  installment   Installment? @relation(fields: [installmentId], references: [id])
+
+  recurringChargeId String?         @unique
+  recurringCharge   RecurringCharge? @relation(fields: [recurringChargeId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, date])
+  @@index([userId, deletedAt])
+}
+
+// ─────────────────────────── CARTÕES ───────────────────────────
+
+model Card {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  name       String
+  limitCents Int
+  closingDay Int // dia de fechamento
+  dueDay     Int // dia de vencimento
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  expenses     Expense[]
+  installments Installment[]
+  invoices     Invoice[]
+
+  @@index([userId, deletedAt])
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  cardId    String
+  card      Card          @relation(fields: [cardId], references: [id])
+  year      Int
+  month     Int
+  status    InvoiceStatus @default(OPEN)
+  dueDate   DateTime      @db.Date
+  totalCents Int          @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  installments Installment[]
+
+  @@unique([cardId, year, month])
+  @@index([cardId])
+}
+
+model Installment {
+  id          String   @id @default(cuid())
+  cardId      String
+  card        Card     @relation(fields: [cardId], references: [id])
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  amountCents Int
+  number      Int // parcela n
+  total       Int // de N parcelas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  expense Expense?
+
+  @@index([cardId])
+  @@index([invoiceId])
+}
+
+// ─────────────────────────── CONTAS RECORRENTES ───────────────────────────
+
+model RecurringBill {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  name       String
+  amountCents Int
+  dueDay     Int // dia do vencimento no mês
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  charges RecurringCharge[]
+
+  @@index([userId, deletedAt])
+}
+
+model RecurringCharge {
+  id              String                @id @default(cuid())
+  recurringBillId String
+  recurringBill   RecurringBill         @relation(fields: [recurringBillId], references: [id])
+  year            Int
+  month           Int
+  amountCents     Int
+  dueDate         DateTime              @db.Date
+  status          RecurringChargeStatus @default(PENDING)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  expense Expense? // quitada por esta despesa
+
+  @@unique([recurringBillId, year, month]) // 1 cobrança por mês; nunca duplica
+  @@index([status])
+}
+
+// ─────────────────────────── CAIXINHA (RESERVA) ───────────────────────────
+
+model Reserve {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  balanceCents Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  movements ReserveMovement[]
+}
+
+model ReserveMovement {
+  id          String              @id @default(cuid())
+  reserveId   String
+  reserve     Reserve             @relation(fields: [reserveId], references: [id])
+  type        ReserveMovementType
+  amountCents Int
+  reason      String? // destino ao retirar ("retirei apenas" / "pagar conta")
+  createdAt   DateTime            @default(now())
+  deletedAt   DateTime?
+
+  @@index([reserveId])
+}
+
+// ─────────────────────────── METAS ───────────────────────────
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  targetCents Int
+  deadline    DateTime? @db.Date
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  contributions GoalContribution[]
+
+  @@index([userId, deletedAt])
+}
+
+model GoalContribution {
+  id          String   @id @default(cuid())
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id])
+  amountCents Int
+  createdAt   DateTime @default(now())
+
+  @@index([goalId])
+}
+
+// ─────────────────────────── CONVERSA / IA ───────────────────────────
+
+model Conversation {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  channel   ChannelProvider
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  messages Message[]
+
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  role           MessageRole
+  content        String
+  intent         String? // intenção detectada
+  usedAi         Boolean      @default(false) // regra vs IA (métrica de custo)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+// ─────────────────────────── NOTIFICAÇÕES ───────────────────────────
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+  type      NotificationType
+  status    NotificationStatus @default(PENDING)
+  payload   Json?
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, status])
+}
+
+// ─────────────────────────── AUDITORIA ───────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // "income.create", "reserve.withdraw", ...
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  channel   ChannelProvider?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
