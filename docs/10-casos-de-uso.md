@@ -112,13 +112,13 @@
 
 ## Rastreabilidade (caso de uso → backlog → regra)
 
-| UC | Tarefa backlog (`docs/05`) | Regra inegociável coberta |
-|---|---|---|
-| UC-01 | T1.3 | sem retroativo, origem obrigatória |
-| UC-02 | T1.4 | forma sempre perguntada |
-| UC-03/04 | T2.1 | caixinha só explícita; pagar conta não vira despesa |
-| UC-05/06 | T2.3 | pendência nunca apagada; não duplica |
-| UC-07 | T2.2 | cartão não mexe no saldo |
-| UC-08 | T2.4 | — |
-| UC-09 | T6.1 | notificação 18h |
-| UC-10 | T1.5 / T6.2 | — |
+| UC       | Tarefa backlog (`docs/05`) | Regra inegociável coberta                           |
+| -------- | -------------------------- | --------------------------------------------------- |
+| UC-01    | T1.3                       | sem retroativo, origem obrigatória                  |
+| UC-02    | T1.4                       | forma sempre perguntada                             |
+| UC-03/04 | T2.1                       | caixinha só explícita; pagar conta não vira despesa |
+| UC-05/06 | T2.3                       | pendência nunca apagada; não duplica                |
+| UC-07    | T2.2                       | cartão não mexe no saldo                            |
+| UC-08    | T2.4                       | —                                                   |
+| UC-09    | T6.1                       | notificação 18h                                     |
+| UC-10    | T1.5 / T6.2                | —                                                   |

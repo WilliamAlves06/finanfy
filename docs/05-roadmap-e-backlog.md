@@ -4,16 +4,16 @@ Evolução **incremental**. Cada fase entrega algo usável e testável. Nunca tu
 
 ## Fases
 
-| Fase | Objetivo | Entrega usável |
-|---|---|---|
-| **F0 — Fundação** | Monorepo, Prisma, auth, CI, docker | Login funciona, DB migrado, testes rodando |
-| **F1 — Núcleo financeiro** | Receitas, Despesas, Saldo, Categorias (via REST) | Painel web básico registra dinheiro |
-| **F2 — Caixinha, Cartões, Recorrentes, Metas** | Módulos restantes + workers | Reserva, faturas e cobranças mensais |
-| **F3 — Chat + Motor de Regras** | Canal Web Chat + Rule Engine (sem IA) | "ganhei 200", "saldo", "paguei água 90" |
-| **F4 — IA** | Gemini/Groq + function calling p/ frases complexas | Frase composta vira várias ações |
-| **F5 — Telegram** | Canal Telegram plugado no núcleo | Usar tudo pelo Telegram |
-| **F6 — Notificações + Relatórios + Dashboard** | Cron 18h, lembretes, relatórios, dashboard | Produto "contador pessoal" completo |
-| **F7+ — Futuro** | WhatsApp, App, OCR, Open Finance, planos | Ver `docs/01` (fora do MVP) |
+| Fase                                           | Objetivo                                           | Entrega usável                             |
+| ---------------------------------------------- | -------------------------------------------------- | ------------------------------------------ |
+| **F0 — Fundação**                              | Monorepo, Prisma, auth, CI, docker                 | Login funciona, DB migrado, testes rodando |
+| **F1 — Núcleo financeiro**                     | Receitas, Despesas, Saldo, Categorias (via REST)   | Painel web básico registra dinheiro        |
+| **F2 — Caixinha, Cartões, Recorrentes, Metas** | Módulos restantes + workers                        | Reserva, faturas e cobranças mensais       |
+| **F3 — Chat + Motor de Regras**                | Canal Web Chat + Rule Engine (sem IA)              | "ganhei 200", "saldo", "paguei água 90"    |
+| **F4 — IA**                                    | Gemini/Groq + function calling p/ frases complexas | Frase composta vira várias ações           |
+| **F5 — Telegram**                              | Canal Telegram plugado no núcleo                   | Usar tudo pelo Telegram                    |
+| **F6 — Notificações + Relatórios + Dashboard** | Cron 18h, lembretes, relatórios, dashboard         | Produto "contador pessoal" completo        |
+| **F7+ — Futuro**                               | WhatsApp, App, OCR, Open Finance, planos           | Ver `docs/01` (fora do MVP)                |
 
 ## Backlog detalhado (tarefas pequenas)
 
@@ -25,6 +25,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 ### F0 — Fundação
 
 #### T0.1 — Inicializar monorepo
+
 - **Objetivo:** pnpm + Turborepo com apps/packages vazios compilando.
 - **Arquivos:** `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`.
 - **Aceite:** `pnpm install` e `pnpm build` passam sem erro.
@@ -32,6 +33,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 - **Checklist:** [ ] workspaces [ ] turbo pipeline [ ] tsconfig compartilhado [ ] eslint/prettier.
 
 #### T0.2 — Prisma + banco
+
 - **Objetivo:** schema aplicado no Supabase, client gerado, seed de categorias padrão.
 - **Arquivos:** `prisma/schema.prisma`, `prisma/seed.ts`, `.env.example`.
 - **Aceite:** `prisma migrate dev` cria tabelas; `prisma db seed` insere categorias.
@@ -39,6 +41,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 - **Checklist:** [ ] migration inicial [ ] seed [ ] índices [ ] soft delete no repositório base.
 
 #### T0.3 — Esqueleto NestJS + config
+
 - **Objetivo:** `apps/api` sobe, health check, config por env, pino, exception filter global.
 - **Arquivos:** `apps/api/src/main.ts`, `app.module.ts`, `common/filters`, `common/logger`.
 - **Aceite:** `GET /health` retorna 200; erro não tratado vira JSON padronizado.
@@ -46,6 +49,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 - **Checklist:** [ ] ConfigModule [ ] pino [ ] filtro global [ ] Swagger em `/docs`.
 
 #### T0.4 — Auth (JWT + refresh + bcrypt)
+
 - **Objetivo:** cadastro, login, refresh, logout; guard de tenant.
 - **Arquivos:** `modules/auth/*`, `common/guards/jwt.guard.ts`, `common/decorators/current-user.ts`.
 - **Aceite:** fluxo completo funciona; refresh rotaciona e revoga; senha nunca em texto.
@@ -53,6 +57,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 - **Checklist:** [ ] bcrypt [ ] access+refresh [ ] rotação [ ] rate limit no login.
 
 #### T0.5 — CI/CD
+
 - **Objetivo:** GitHub Actions rodando lint + typecheck + testes em PR.
 - **Arquivos:** `.github/workflows/ci.yml`, `docker-compose.yml` (postgres+redis local).
 - **Aceite:** PR falha se teste/lint falhar.
@@ -63,17 +68,20 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 ### F1 — Núcleo financeiro (REST primeiro, chat depois)
 
 #### T1.1 — Repositório base multi-tenant + auditoria + soft delete
+
 - **Objetivo:** classe base que injeta `userId` em toda query e grava `AuditLog`.
 - **Arquivos:** `common/repository/base.repository.ts`, `common/audit/*`.
 - **Aceite:** impossível consultar sem `userId`; toda escrita gera log.
 - **Testes:** unit garante filtro de tenant e criação de auditoria.
 
 #### T1.2 — Módulo Categorias
+
 - **Objetivo:** CRUD de categorias (padrão + do usuário).
 - **Aceite:** lista traz padrão + próprias; não deleta padrão do sistema.
 - **Testes:** unit do use case + E2E CRUD.
 
 #### T1.3 — Módulo Receitas
+
 - **Objetivo:** registrar/listar receita com **origem obrigatória**, data = hoje, **sem retroativo**.
 - **Arquivos:** `modules/incomes/*`.
 - **Aceite:** rejeita data ≠ hoje; aceita várias no mesmo dia; atualiza `balanceCents`.
@@ -81,6 +89,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 - **Checklist:** [ ] enum origem [ ] várias/dia [ ] bloqueio retroativo [ ] cliente/categoria opcionais.
 
 #### T1.4 — Módulo Despesas
+
 - **Objetivo:** registrar despesa com **forma de pagamento obrigatória**; efeito por método.
 - **Arquivos:** `modules/expenses/*`.
 - **Aceite:** SALDO abate `balanceCents`; CAIXINHA abate reserva; CARTAO cria parcela/fatura;
@@ -88,6 +97,7 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 - **Testes:** unit por método + E2E.
 
 #### T1.5 — Consulta de saldo / "quanto posso gastar"
+
 - **Objetivo:** endpoint/serviço de leitura (CQRS query) do resumo financeiro.
 - **Aceite:** retorna saldo disponível, reserva, pendências, faturas abertas.
 - **Testes:** unit do cálculo com cenários.
@@ -95,26 +105,31 @@ Abaixo o backlog de F0 e F1 detalhado; F2+ listado em título (detalhar quando c
 ---
 
 ### F2 — Caixinha, Cartões, Recorrentes, Metas (títulos)
+
 - T2.1 Reserve + ReserveMovement (regras de destino ao retirar).
 - T2.2 Cartões, Faturas, Parcelas (cálculo de disponível derivado).
 - T2.3 RecurringBill + worker mensal que gera RecurringCharge (não duplica, não apaga pendência).
 - T2.4 Metas + aportes.
 
 ### F3 — Chat + Motor de Regras (títulos)
+
 - T3.1 Channel Layer (interface `MessagingChannel`) + Web Chat.
 - T3.2 Message Router + Conversation/Message + memória.
 - T3.3 Rule Engine (Chain of Responsibility): saldo, ganhei X, recebi X, paguei X Y, caixinha X, relatório.
 - T3.4 Fluxo de confirmação para operações ambíguas.
 
 ### F4 — IA (títulos)
+
 - T4.1 Interface `LlmProvider` + adapters Gemini e Groq.
 - T4.2 Function calling: cada caso de uso vira função exposta.
 - T4.3 Intent + entity extraction; anti-duplicação; nunca assumir valor.
 
 ### F5 — Telegram (títulos)
+
 - T5.1 Adapter Telegram (webhook) + vínculo `ChannelIdentity`.
 
 ### F6 — Notificações + Relatórios + Dashboard (títulos)
+
 - T6.1 Cron 18h "sem receita hoje"; lembretes de vencimento/fatura/saldo negativo.
 - T6.2 Relatórios (queries CQRS) para todas as perguntas do briefing.
 - T6.3 Dashboard web (resumo, fluxo, calendário, cartões, caixinha, clientes, histórico).

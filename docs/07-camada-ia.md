@@ -16,9 +16,9 @@ export interface LlmProvider {
 
 export interface LlmRequest {
   system: string;
-  messages: LlmMessage[];      // memória de contexto (Conversation)
-  tools: LlmToolDef[];         // funções expostas (casos de uso)
-  temperature?: number;        // baixa (0-0.2): tarefa determinística
+  messages: LlmMessage[]; // memória de contexto (Conversation)
+  tools: LlmToolDef[]; // funções expostas (casos de uso)
+  temperature?: number; // baixa (0-0.2): tarefa determinística
 }
 
 export interface LlmResult {
@@ -28,6 +28,7 @@ export interface LlmResult {
 ```
 
 Adapters em `infrastructure/`:
+
 - `GeminiLlmProvider` → `gemini-2.0-flash` (principal).
 - `GroqLlmProvider` → `llama-3.3-70b` (fallback/mensagens simples).
 - (futuro) `OpenAiLlmProvider` — só trocar o binding no módulo, **zero** mudança no domínio.
@@ -45,6 +46,7 @@ escreve no banco — ele só decide **qual função chamar com quais argumentos*
 `pagar_conta` · `criar_meta` · `aportar_meta` · `consultar`.
 
 Exemplo de definição:
+
 ```json
 {
   "name": "registrar_despesa",
@@ -53,7 +55,7 @@ Exemplo de definição:
     "type": "object",
     "properties": {
       "valorCentavos": { "type": "integer" },
-      "forma": { "enum": ["DINHEIRO","SALDO","CAIXINHA","CARTAO","PIX"] },
+      "forma": { "enum": ["DINHEIRO", "SALDO", "CAIXINHA", "CARTAO", "PIX"] },
       "categoria": { "type": "string" }
     },
     "required": ["valorCentavos"]
@@ -63,9 +65,10 @@ Exemplo de definição:
 
 ## Frase composta (o caso que justifica a IA)
 
-Entrada: *"Hoje trabalhei pra Maria, recebi 220, paguei 35 de gasolina, guardei 50 na reserva e comprei pão no cartão."*
+Entrada: _"Hoje trabalhei pra Maria, recebi 220, paguei 35 de gasolina, guardei 50 na reserva e comprei pão no cartão."_
 
 O LLM retorna **múltiplas** tool calls em ordem:
+
 1. `registrar_receita(valor=22000, origem=DIARIA, cliente="Maria")`
 2. `registrar_despesa(valor=3500, categoria="combustível")` → **forma faltando** → sistema pergunta.
 3. `guardar_caixinha(valor=5000)`

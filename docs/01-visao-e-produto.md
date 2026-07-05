@@ -32,15 +32,18 @@ não a exceção. **Cada palavra da interface e das respostas precisa ser simple
 Estas regras vêm do briefing e são **inegociáveis**. Viram testes.
 
 ### Receitas
+
 - Sempre perguntar a **origem** (Diária, PIX, Salário, Venda, Outro).
 - Várias receitas no mesmo dia: **permitido**.
 - **Não** permitir lançamento retroativo. Esqueceu o dia? **Dia perdido** (não registra pra trás).
 
 ### Despesas
+
 - **Sempre perguntar como foi paga:** Dinheiro, Saldo disponível, Caixinha, Cartão, PIX.
 - **Nunca** assumir a forma de pagamento automaticamente.
 
 ### Caixinha (reserva)
+
 - **Nunca** recebe dinheiro automático — só quando o usuário manda ("guardei 300").
 - Ao retirar, **perguntar o destino**:
   - "Retirei apenas" → só **diminui** o saldo da caixinha.
@@ -48,18 +51,22 @@ Estas regras vêm do briefing e são **inegociáveis**. Viram testes.
 - Sempre informar o **saldo atualizado** após mexer na caixinha.
 
 ### Cartões
+
 - Cadastrados pelo painel. Controlam limite, disponível, parcelas, faturas, fechamento, vencimento.
 - Vários cartões por usuário.
 
 ### Contas recorrentes
+
 - Criadas pelo painel. Todo mês **geram automaticamente** uma cobrança.
 - Se não paga, **continua pendente** e no mês seguinte **cria nova cobrança** — **nunca apaga** a pendência.
 
 ### Notificações
+
 - Todo dia **18:00**: se não houver receita registrada → "Você ainda não registrou quanto ganhou hoje."
 - Lembretes de: contas perto do vencimento, faturas, saldo negativo.
 
 ### Relatórios (perguntas que o assistente responde)
+
 Quanto tenho? Quanto posso gastar? Quanto gastei/recebi? Quanto tem na reserva?
 Quais contas venceram? Qual cartão tem mais limite? Quanto sobrou no mês? Quanto economizei no ano?
 

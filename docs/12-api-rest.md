@@ -14,8 +14,15 @@
 ## Erros (padrão único)
 
 ```json
-{ "error": { "code": "PAYMENT_METHOD_REQUIRED", "message": "Informe a forma de pagamento.", "traceId": "..." } }
+{
+  "error": {
+    "code": "PAYMENT_METHOD_REQUIRED",
+    "message": "Informe a forma de pagamento.",
+    "traceId": "..."
+  }
+}
 ```
+
 Status: 400 validação · 401 não autenticado · 403 sem permissão/tenant · 404 inexistente ·
 409 conflito (ex.: duplicado) · 422 regra de domínio · 429 rate limit · 500 interno.
 
@@ -28,46 +35,57 @@ Status: 400 validação · 401 não autenticado · 403 sem permissão/tenant · 
 ## Índice de endpoints (por módulo)
 
 ### Auth
+
 - `POST /v1/auth/register` · `POST /v1/auth/login` · `POST /v1/auth/refresh` · `POST /v1/auth/logout`
 
 ### Receitas
+
 - `POST /v1/incomes` (valor, origem, clienteId?, categoriaId?) — **rejeita data≠hoje**
 - `GET /v1/incomes` (filtros/paginação) · `GET /v1/incomes/:id` · `DELETE /v1/incomes/:id` (soft)
 
 ### Despesas
+
 - `POST /v1/expenses` (valor, **forma**, categoriaId?, cartaoId?) — **forma obrigatória**
 - `GET /v1/expenses` · `GET /v1/expenses/:id` · `DELETE /v1/expenses/:id`
 
 ### Caixinha
+
 - `GET /v1/reserve` (saldo) · `POST /v1/reserve/deposit` (valor)
 - `POST /v1/reserve/withdraw` (valor, **destino**: `apenas|pagar_conta`)
 - `GET /v1/reserve/movements`
 
 ### Cartões
+
 - `POST /v1/cards` · `GET /v1/cards` · `GET /v1/cards/:id` (limite/disponível derivado)
 - `GET /v1/cards/:id/invoices` · `GET /v1/invoices/:id`
 
 ### Contas recorrentes
+
 - `POST /v1/recurring-bills` · `GET /v1/recurring-bills`
 - `GET /v1/recurring-charges?status=PENDING` · `POST /v1/recurring-charges/:id/pay` (forma)
 
 ### Metas
+
 - `POST /v1/goals` · `GET /v1/goals` · `POST /v1/goals/:id/contributions`
 
 ### Clientes / Categorias
+
 - `POST|GET /v1/clients` · `GET /v1/clients/:id` · `PATCH /v1/clients/:id` · `DELETE ...`
 - `POST|GET /v1/categories` (padrão não deletável)
 
 ### Relatórios (CQRS query, leitura)
+
 - `GET /v1/reports/summary` (saldo, reserva, pendências, faturas)
 - `GET /v1/reports/can-spend` · `GET /v1/reports/monthly?month=2026-07`
 - `GET /v1/reports/overdue` · `GET /v1/reports/savings?year=2026`
 
 ### Chat (todos os canais entram por aqui ou por webhook)
+
 - `POST /v1/chat/messages` (texto) → resposta do assistente (web)
 - `POST /v1/channels/telegram/webhook` (público, valida secret token)
 
 ### Notificações
+
 - `GET /v1/notifications` · `PATCH /v1/notifications/:id/read`
 
 ## Regras de contrato que viram teste

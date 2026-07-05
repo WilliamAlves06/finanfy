@@ -6,10 +6,12 @@
 ## Autenticação
 
 ### Cadastro / Login
+
 - Senha com **bcrypt** (`saltRounds >= 12`). Nunca guardar/logar senha em texto.
 - Login retorna **access token** (JWT, curto: 15 min) + **refresh token** (longo: 30 dias).
 
 ### Tokens
+
 - **Access JWT:** assinado com `JWT_SECRET`, claims mínimos (`sub = userId`, `iat`, `exp`).
   Enviado em `Authorization: Bearer`.
 - **Refresh token:** opaco, **hash guardado** em `RefreshToken` (nunca o valor puro). Rotação:
@@ -18,6 +20,7 @@
 - Logout: revoga o refresh atual.
 
 ### Guards
+
 - `JwtAuthGuard` valida o access token e injeta `CurrentUser`.
 - `@CurrentUser()` decorator entrega `userId` aos controllers/use cases.
 - Canais externos (Telegram) resolvem tenant por `ChannelIdentity` (`docs/06`), não por JWT.

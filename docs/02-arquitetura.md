@@ -101,7 +101,7 @@ Prisma/Gemini/Telegram barato.
 3. **Rule Engine** tenta casar com padrões simples (regex + normalização pt-BR).
    - **Casou** → executa o caso de uso direto. Custo de IA: zero.
    - **Não casou / ambíguo** → segue para IA.
-4. **AI Layer** faz *intent detection* + *entity extraction* via **function calling**.
+4. **AI Layer** faz _intent detection_ + _entity extraction_ via **function calling**.
    Cada função exposta à IA = um caso de uso do domínio.
 5. Caso de uso executa. Se a operação for financeira ambígua → **pede confirmação** (não grava ainda).
 6. Resposta em linguagem natural volta pelo mesmo canal, com **saldo atualizado** quando relevante.

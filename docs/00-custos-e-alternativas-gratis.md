@@ -17,19 +17,19 @@ O resto da stack (Next.js, NestJS, Prisma, Postgres, Redis, etc.) tem plano grat
 
 ## Tabela de decisão
 
-| Camada | Stack pedida | Custo real | Decisão gratuita adotada |
-|---|---|---|---|
-| Frontend host | Vercel | ✅ Free (hobby) | **Vercel Hobby** — ok para MVP (uso pessoal/não comercial). Alternativa: Cloudflare Pages. |
-| API/Workers host | (não definido) | — | **Render Free** ou **Railway trial**; melhor grátis de verdade: **Fly.io free allowance** ou rodar em **Oracle Cloud Always Free** (VM ARM 24GB). |
-| Banco Postgres | Supabase | ✅ Free (500MB, 2 projetos) | **Supabase Free**. Alternativa: **Neon Free** (0.5GB, ótimo p/ serverless). |
-| Storage | Supabase Storage | ✅ Free (1GB) | **Supabase Storage**. Alternativa: **Cloudflare R2** (10GB grátis). |
-| Redis / filas | Redis + BullMQ | ⚠️ Redis gerenciado costuma ser pago | **Upstash Redis Free** (10k cmd/dia) — compatível com BullMQ. Alternativa: Redis no próprio VM. |
-| **IA / LLM** | **OpenAI** | ❌ **PAGO** | **Google Gemini 1.5/2.0 Flash** (free tier generoso) como principal + **Groq** (Llama 3.3 grátis, ultrarrápido) como fallback. |
-| Canal de msg | WhatsApp oficial | ❌ **PAGO/burocrático** | **Telegram Bot API** (100% grátis, ilimitado) no MVP. WhatsApp via **Evolution API** (self-host, não-oficial) como fase 2 experimental. |
-| Auth | JWT próprio | ✅ Grátis | Mantido (jsonwebtoken + bcrypt). |
-| Monitoramento | Sentry | ✅ Free (5k eventos/mês) | **Sentry Free**. Logs: **pino** (grátis, self-host). |
-| CI/CD | GitHub Actions | ✅ Free (2000 min/mês repo público ilimitado) | Mantido. |
-| Cron/agendador | (18h notificações) | — | **GitHub Actions schedule** ou cron do próprio worker (BullMQ repeatable). Grátis. |
+| Camada           | Stack pedida       | Custo real                                    | Decisão gratuita adotada                                                                                                                          |
+| ---------------- | ------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend host    | Vercel             | ✅ Free (hobby)                               | **Vercel Hobby** — ok para MVP (uso pessoal/não comercial). Alternativa: Cloudflare Pages.                                                        |
+| API/Workers host | (não definido)     | —                                             | **Render Free** ou **Railway trial**; melhor grátis de verdade: **Fly.io free allowance** ou rodar em **Oracle Cloud Always Free** (VM ARM 24GB). |
+| Banco Postgres   | Supabase           | ✅ Free (500MB, 2 projetos)                   | **Supabase Free**. Alternativa: **Neon Free** (0.5GB, ótimo p/ serverless).                                                                       |
+| Storage          | Supabase Storage   | ✅ Free (1GB)                                 | **Supabase Storage**. Alternativa: **Cloudflare R2** (10GB grátis).                                                                               |
+| Redis / filas    | Redis + BullMQ     | ⚠️ Redis gerenciado costuma ser pago          | **Upstash Redis Free** (10k cmd/dia) — compatível com BullMQ. Alternativa: Redis no próprio VM.                                                   |
+| **IA / LLM**     | **OpenAI**         | ❌ **PAGO**                                   | **Google Gemini 1.5/2.0 Flash** (free tier generoso) como principal + **Groq** (Llama 3.3 grátis, ultrarrápido) como fallback.                    |
+| Canal de msg     | WhatsApp oficial   | ❌ **PAGO/burocrático**                       | **Telegram Bot API** (100% grátis, ilimitado) no MVP. WhatsApp via **Evolution API** (self-host, não-oficial) como fase 2 experimental.           |
+| Auth             | JWT próprio        | ✅ Grátis                                     | Mantido (jsonwebtoken + bcrypt).                                                                                                                  |
+| Monitoramento    | Sentry             | ✅ Free (5k eventos/mês)                      | **Sentry Free**. Logs: **pino** (grátis, self-host).                                                                                              |
+| CI/CD            | GitHub Actions     | ✅ Free (2000 min/mês repo público ilimitado) | Mantido.                                                                                                                                          |
+| Cron/agendador   | (18h notificações) | —                                             | **GitHub Actions schedule** ou cron do próprio worker (BullMQ repeatable). Grátis.                                                                |
 
 ---
 
@@ -58,6 +58,7 @@ A **WhatsApp Cloud API oficial** (Meta) cobra por conversa iniciada e exige veri
 negócio (CNPJ, número dedicado). Não é "grátis" nem simples para um autônomo.
 
 Estratégia:
+
 - **MVP:** canal **Telegram** (grátis, ilimitado) + **Web Chat** (nosso próprio). Provam o produto.
 - **Fase 2:** **WhatsApp** via **Evolution API** self-hosted (não-oficial, gratuito) — funciona,
   mas tem risco de bloqueio; usar com número de teste.
@@ -70,17 +71,17 @@ depois não reescreve nada. Veja `docs/06-camada-de-canais.md`.
 
 ## Estimativa de custo mensal do MVP
 
-| Item | Plano | Custo |
-|---|---|---|
-| Vercel Hobby | Free | R$ 0 |
-| Supabase | Free | R$ 0 |
-| Upstash Redis | Free | R$ 0 |
-| Gemini + Groq | Free tier | R$ 0 |
-| Telegram Bot | Free | R$ 0 |
-| Sentry | Free | R$ 0 |
-| GitHub Actions | Free | R$ 0 |
-| API/Worker host | Fly.io free / Oracle Always Free | R$ 0 |
-| **Total** | | **R$ 0/mês** |
+| Item            | Plano                            | Custo        |
+| --------------- | -------------------------------- | ------------ |
+| Vercel Hobby    | Free                             | R$ 0         |
+| Supabase        | Free                             | R$ 0         |
+| Upstash Redis   | Free                             | R$ 0         |
+| Gemini + Groq   | Free tier                        | R$ 0         |
+| Telegram Bot    | Free                             | R$ 0         |
+| Sentry          | Free                             | R$ 0         |
+| GitHub Actions  | Free                             | R$ 0         |
+| API/Worker host | Fly.io free / Oracle Always Free | R$ 0         |
+| **Total**       |                                  | **R$ 0/mês** |
 
 > Único gasto opcional futuro: **domínio próprio** (~R$ 40/ano). Dá para usar subdomínio grátis
 > (`*.vercel.app`) no início.

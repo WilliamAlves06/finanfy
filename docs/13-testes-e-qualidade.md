@@ -14,20 +14,20 @@
 
 ## Regras que DEVEM ter teste (do briefing)
 
-| Regra | Teste |
-|---|---|
-| Receita sem retroativo | `POST /incomes` com data≠hoje → 422; várias no mesmo dia → ok |
-| Origem da receita obrigatória | sem origem não grava; pergunta origem |
-| Despesa: forma sempre perguntada | sem `forma` → 400; nunca inferida |
-| Efeito por forma de pagamento | SALDO abate saldo; CAIXINHA abate reserva; CARTÃO não mexe no saldo |
-| Caixinha só por ordem explícita | depósito automático nunca ocorre |
-| Retirar "apenas" | abate reserva, **não** cria Expense |
-| Retirar "pagar conta" | abate reserva, **não** cria Expense |
-| Recorrente não duplica | rodar job 2x no mesmo mês → 1 cobrança |
-| Pendência nunca apagada | cobrança não paga persiste; novo mês cria outra |
-| Notificação 18h | com receita hoje não dispara; sem receita dispara |
-| Isolamento multi-tenant | tenant A nunca lê dado de B (query sem `userId` falha no teste) |
-| Anti-duplicação | mesma mensagem repetida em N s não lança 2x |
+| Regra                            | Teste                                                               |
+| -------------------------------- | ------------------------------------------------------------------- |
+| Receita sem retroativo           | `POST /incomes` com data≠hoje → 422; várias no mesmo dia → ok       |
+| Origem da receita obrigatória    | sem origem não grava; pergunta origem                               |
+| Despesa: forma sempre perguntada | sem `forma` → 400; nunca inferida                                   |
+| Efeito por forma de pagamento    | SALDO abate saldo; CAIXINHA abate reserva; CARTÃO não mexe no saldo |
+| Caixinha só por ordem explícita  | depósito automático nunca ocorre                                    |
+| Retirar "apenas"                 | abate reserva, **não** cria Expense                                 |
+| Retirar "pagar conta"            | abate reserva, **não** cria Expense                                 |
+| Recorrente não duplica           | rodar job 2x no mesmo mês → 1 cobrança                              |
+| Pendência nunca apagada          | cobrança não paga persiste; novo mês cria outra                     |
+| Notificação 18h                  | com receita hoje não dispara; sem receita dispara                   |
+| Isolamento multi-tenant          | tenant A nunca lê dado de B (query sem `userId` falha no teste)     |
+| Anti-duplicação                  | mesma mensagem repetida em N s não lança 2x                         |
 
 ## Motor de regras / IA
 

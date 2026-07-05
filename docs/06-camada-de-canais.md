@@ -8,15 +8,15 @@
 ```ts
 // domain
 export interface MessagingChannel {
-  readonly provider: ChannelProvider;         // TELEGRAM | WEB | WHATSAPP | ANDROID | API
+  readonly provider: ChannelProvider; // TELEGRAM | WEB | WHATSAPP | ANDROID | API
   send(message: OutgoingMessage): Promise<void>;
 }
 
 export interface IncomingMessage {
   provider: ChannelProvider;
-  externalId: string;      // id do chat/usuário no canal (ex.: chat_id Telegram)
+  externalId: string; // id do chat/usuário no canal (ex.: chat_id Telegram)
   text: string;
-  raw?: unknown;           // payload original, p/ debug
+  raw?: unknown; // payload original, p/ debug
 }
 
 export interface OutgoingMessage {
@@ -54,11 +54,13 @@ Webhook do canal  →  ChannelAdapter.parse()  →  IncomingMessage
 ## Adapters do MVP
 
 ### Web Chat (nosso)
+
 - Front em `apps/web` (componente de chat) → `POST /v1/chat/messages` no NestJS.
 - `provider = WEB`, `externalId = userId` (já autenticado por JWT). Não precisa de vínculo.
 - `send()` responde no próprio HTTP (síncrono) ou via SSE/websocket para streaming (opcional).
 
 ### Telegram
+
 - Bot criado no **@BotFather** (grátis). Webhook aponta para `POST /v1/channels/telegram/webhook`.
 - `parse()` extrai `chat.id` (→ `externalId`) e `text`.
 - `send()` chama `sendMessage` da Bot API; `quickReplies` viram **reply keyboard** (botões).
@@ -66,12 +68,12 @@ Webhook do canal  →  ChannelAdapter.parse()  →  IncomingMessage
 
 ## Como plugar canais futuros (sem mexer no núcleo)
 
-| Canal | O que muda | Custo |
-|---|---|---|
-| **WhatsApp** (fase 2) | novo `WhatsAppChannel` via **Evolution API** self-host (não-oficial) | grátis, risco de bloqueio |
-| **WhatsApp** (oficial) | mesmo adapter apontando p/ Cloud API | pago |
-| **App Android/iOS** | consome a REST `/v1` com JWT; `provider = ANDROID` | grátis |
-| **API pública** | expõe `/v1` com API keys por tenant; `provider = API` | grátis |
+| Canal                  | O que muda                                                           | Custo                     |
+| ---------------------- | -------------------------------------------------------------------- | ------------------------- |
+| **WhatsApp** (fase 2)  | novo `WhatsAppChannel` via **Evolution API** self-host (não-oficial) | grátis, risco de bloqueio |
+| **WhatsApp** (oficial) | mesmo adapter apontando p/ Cloud API                                 | pago                      |
+| **App Android/iOS**    | consome a REST `/v1` com JWT; `provider = ANDROID`                   | grátis                    |
+| **API pública**        | expõe `/v1` com API keys por tenant; `provider = API`                | grátis                    |
 
 Em todos os casos: **implementa `MessagingChannel`, registra no módulo, pronto.** Router, regras,
 IA e domínio não mudam.
@@ -79,6 +81,7 @@ IA e domínio não mudam.
 ## `quickReplies` = zero fricção
 
 Para respeitar "nunca preencher formulário", perguntas do domínio viram **botões**:
+
 - Forma de pagamento → `[Dinheiro] [PIX] [Cartão] [Saldo] [Caixinha]`.
 - Origem da receita → `[Diária] [PIX] [Salário] [Venda] [Outro]`.
 - Destino da retirada → `[Só retirar] [Pagar conta]`.

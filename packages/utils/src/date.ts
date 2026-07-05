@@ -11,6 +11,10 @@ export function todayInTz(timeZone = 'America/Sao_Paulo', now: Date = new Date()
 }
 
 /** True se a data (YYYY-MM-DD) é o dia de hoje no fuso — regra "sem retroativo" (UC-01). */
-export function isToday(dateISO: string, timeZone = 'America/Sao_Paulo', now: Date = new Date()): boolean {
+export function isToday(
+  dateISO: string,
+  timeZone = 'America/Sao_Paulo',
+  now: Date = new Date(),
+): boolean {
   return dateISO === todayInTz(timeZone, now);
 }
