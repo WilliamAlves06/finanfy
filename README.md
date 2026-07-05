@@ -4,8 +4,22 @@ Assistente financeiro **por conversa** para trabalhadores autônomos (diaristas,
 motoristas, freelancers…). O usuário **não preenche formulário** — ele conversa, e a IA
 organiza a vida financeira dele como um **contador pessoal**.
 
-> **Status:** ✅ documentação completa — pronto para iniciar o código (backlog T0.1, `docs/05`).
+> **Status:** ✅ MVP funcional — API completa + chat com motor de regras + IA + Telegram + painel web.
 > **Custo alvo:** R$ 0/mês — ver [análise de custos](docs/00-custos-e-alternativas-gratis.md).
+
+## Rodando localmente
+
+```bash
+pnpm install
+pnpm exec prisma generate
+# preencha o .env (copie de .env.example) com o Supabase
+pnpm db:migrate && pnpm db:seed
+pnpm --filter @finanfy/api build && node apps/api/dist/main.js   # API :3001 (Swagger em /docs)
+pnpm --filter @finanfy/web dev                                    # Web :3000
+```
+
+Chaves opcionais no `.env`: `GEMINI_API_KEY`/`GROQ_API_KEY` (frases compostas via IA) e
+`TELEGRAM_BOT_TOKEN` (canal Telegram). Sem elas, o motor de regras cobre os comandos simples.
 
 ## Documentação
 
