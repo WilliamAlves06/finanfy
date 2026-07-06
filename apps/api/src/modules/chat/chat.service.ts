@@ -2,6 +2,7 @@ import { Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { CardsService } from '../cards/cards.service';
 import { Action, Channel, PendingState, Reply } from './actions';
 import { ActionExecutorService } from './action-executor.service';
 import { normalizeText, parseBRLToCents } from './normalize';
@@ -17,6 +18,7 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly executor: ActionExecutorService,
+    private readonly cards: CardsService,
     @Optional() private readonly ai?: AiService,
   ) {}
 
@@ -49,6 +51,45 @@ export class ChatService {
     // 1. FSM: há estado pendente? a mensagem é a resposta do que falta
     const pending = await this.loadPending(conversationId);
     if (pending) {
+      // cancelamento explícito sempre funciona
+      if (/^(cancelar?|esquece|deixa( pra la)?)$/.test(normalizeText(text))) {
+        await this.savePending(conversationId, null);
+        return { text: 'Ok, cancelei. 👍 O que mais posso fazer?', intent: 'cancelled' };
+      }
+
+      // assistente de cadastro de cartão (multi-passo)
+      if (pending.type === 'NEW_CARD') {
+        return this.newCardStep(conversationId, userId, pending, text, channel);
+      }
+
+      // no "qual cartão?", a opção de cadastrar um novo entra no assistente
+      if (pending.type === 'AWAITING_CARD' && /(novo cartao|cadastrar)/.test(normalizeText(text))) {
+        const name = pending.suggestedName;
+        const thenExpense = { amountCents: pending.amountCents, note: pending.note };
+        if (name) {
+          await this.savePending(conversationId, {
+            type: 'NEW_CARD',
+            step: 'LIMIT',
+            draft: { name },
+            thenExpense,
+          });
+          return {
+            text: `Vamos cadastrar o "${name}"! 💳\nQual o limite dele? (ex.: 1000)`,
+            intent: 'card.wizard.limit',
+          };
+        }
+        await this.savePending(conversationId, {
+          type: 'NEW_CARD',
+          step: 'NAME',
+          draft: {},
+          thenExpense,
+        });
+        return {
+          text: 'Vamos cadastrar! 💳 Qual o nome do cartão? (ex.: Nubank)',
+          intent: 'card.wizard.name',
+        };
+      }
+
       const action = this.resolvePending(pending, text);
       if (action) return this.runAction(conversationId, userId, action, channel);
 
@@ -99,6 +140,107 @@ export class ChatService {
     const { reply, pending } = await this.executor.execute(userId, action, channel);
     await this.savePending(conversationId, pending ?? null);
     return reply;
+  }
+
+  /** Assistente de cadastro de cartão: NAME → LIMIT → CLOSING → DUE → cria (e conclui a despesa). */
+  private async newCardStep(
+    conversationId: string,
+    userId: string,
+    pending: Extract<PendingState, { type: 'NEW_CARD' }>,
+    rawText: string,
+    channel: Channel,
+  ): Promise<Reply> {
+    const text = rawText.trim();
+
+    switch (pending.step) {
+      case 'NAME': {
+        if (!text || text.length > 40)
+          return {
+            text: 'Me diga um nome curto para o cartão (ex.: Nubank).',
+            intent: 'card.wizard.name',
+          };
+        await this.savePending(conversationId, {
+          ...pending,
+          step: 'LIMIT',
+          draft: { name: text },
+        });
+        return {
+          text: `Beleza, "${text}"! Qual o limite dele? (ex.: 1000)`,
+          intent: 'card.wizard.limit',
+        };
+      }
+      case 'LIMIT': {
+        const limitCents = parseBRLToCents(text);
+        if (!limitCents)
+          return {
+            text: 'Não entendi o limite. Me diga um valor, ex.: 1000 ou 1500,50.',
+            intent: 'card.wizard.limit',
+          };
+        await this.savePending(conversationId, {
+          ...pending,
+          step: 'CLOSING',
+          draft: { ...pending.draft, limitCents },
+        });
+        return { text: 'Que dia a fatura fecha? (1 a 28)', intent: 'card.wizard.closing' };
+      }
+      case 'CLOSING': {
+        const day = this.parseDay(text);
+        if (!day)
+          return {
+            text: 'Me diga só o dia do fechamento, entre 1 e 28. (ex.: 5)',
+            intent: 'card.wizard.closing',
+          };
+        await this.savePending(conversationId, {
+          ...pending,
+          step: 'DUE',
+          draft: { ...pending.draft, closingDay: day },
+        });
+        return { text: 'E que dia ela vence? (1 a 28)', intent: 'card.wizard.due' };
+      }
+      case 'DUE': {
+        const day = this.parseDay(text);
+        if (!day)
+          return {
+            text: 'Me diga só o dia do vencimento, entre 1 e 28. (ex.: 12)',
+            intent: 'card.wizard.due',
+          };
+
+        const card = await this.cards.create(userId, {
+          name: pending.draft.name!,
+          limitCents: pending.draft.limitCents!,
+          closingDay: pending.draft.closingDay!,
+          dueDay: day,
+        });
+        await this.savePending(conversationId, null);
+
+        // tinha uma despesa esperando esse cartão? conclui agora
+        if (pending.thenExpense) {
+          const done = await this.runAction(
+            conversationId,
+            userId,
+            {
+              kind: 'expense',
+              amountCents: pending.thenExpense.amountCents,
+              method: 'CARTAO',
+              cardName: card.name,
+              note: pending.thenExpense.note,
+            },
+            channel,
+          );
+          return { ...done, text: `Cartão "${card.name}" cadastrado! ✅\n\n${done.text}` };
+        }
+        return {
+          text: `Cartão "${card.name}" cadastrado! ✅ Pode usar: "paguei 50 no cartão ${card.name}".`,
+          intent: 'card.created',
+        };
+      }
+    }
+  }
+
+  private parseDay(text: string): number | null {
+    const m = text.trim().match(/^dia\s*(\d{1,2})$|^(\d{1,2})$/);
+    const day = Number(m?.[1] ?? m?.[2]);
+    return Number.isInteger(day) && day >= 1 && day <= 28 ? day : null;
   }
 
   /** FSM: interpreta a resposta curta conforme o estado atual. */
@@ -180,6 +322,9 @@ export class ChatService {
           };
         return null;
       }
+
+      case 'NEW_CARD':
+        return null; // tratado antes, em newCardStep()
     }
   }
 
@@ -204,6 +349,8 @@ export class ChatService {
         };
       case 'AWAITING_WITHDRAW_DESTINATION':
         return { kind: 'reserve_withdraw', amountCents: pending.amountCents };
+      case 'NEW_CARD':
+        return { kind: 'new_card', name: pending.draft.name };
     }
   }
 

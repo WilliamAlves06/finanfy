@@ -81,6 +81,24 @@ export class ActionExecutorService {
       }
       case 'query':
         return { reply: await this.runQuery(userId, action.type) };
+      case 'new_card': {
+        if (action.name) {
+          return {
+            reply: {
+              text: `Vamos cadastrar o cartão "${action.name}"! 💳\nQual o limite dele? (ex.: 1000)`,
+              intent: 'card.wizard.limit',
+            },
+            pending: { type: 'NEW_CARD', step: 'LIMIT', draft: { name: action.name } },
+          };
+        }
+        return {
+          reply: {
+            text: 'Vamos cadastrar um cartão! 💳\nQual o nome dele? (ex.: Nubank)',
+            intent: 'card.wizard.name',
+          },
+          pending: { type: 'NEW_CARD', step: 'NAME', draft: {} },
+        };
+      }
       case 'help':
         return {
           reply: {
@@ -182,20 +200,33 @@ export class ActionExecutorService {
     let cardId: string | undefined;
     if (action.method === 'CARTAO') {
       const names = await this.cards.listNames(userId);
+      const thenExpense = { amountCents: action.amountCents, note: action.note };
+
+      // sem nenhum cartão → cadastra pelo próprio chat e depois conclui a despesa
       if (names.length === 0) {
+        if (action.cardName) {
+          return {
+            reply: {
+              text: `Você ainda não tem cartão cadastrado — vamos cadastrar o "${action.cardName}" agora! 💳\nQual o limite dele? (ex.: 1000)`,
+              intent: 'card.wizard.limit',
+            },
+            pending: {
+              type: 'NEW_CARD',
+              step: 'LIMIT',
+              draft: { name: action.cardName },
+              thenExpense,
+            },
+          };
+        }
         return {
           reply: {
-            text: 'Você ainda não tem cartão cadastrado. 😕 Cadastre no painel (Cartões → Novo) e me chame de novo — ou me diga outra forma de pagamento.',
-            quickReplies: ['Dinheiro', 'PIX', 'Saldo', 'Caixinha'],
-            intent: 'expense.no_cards',
+            text: 'Você ainda não tem cartão cadastrado — vamos cadastrar agora! 💳\nQual o nome do cartão? (ex.: Nubank)',
+            intent: 'card.wizard.name',
           },
-          pending: {
-            type: 'AWAITING_EXPENSE_METHOD',
-            amountCents: action.amountCents,
-            note: action.note,
-          },
+          pending: { type: 'NEW_CARD', step: 'NAME', draft: {}, thenExpense },
         };
       }
+
       // sempre perguntar qual cartão quando não foi dito — nunca escolher sozinho
       const card = action.cardName ? await this.cards.findByName(userId, action.cardName) : null;
       if (!card) {
@@ -204,10 +235,18 @@ export class ActionExecutorService {
             text: action.cardName
               ? `Não encontrei o cartão "${action.cardName}". Qual desses foi?`
               : 'Qual cartão?',
-            quickReplies: names,
+            quickReplies: [
+              ...names,
+              action.cardName ? `Cadastrar "${action.cardName}"` : 'Novo cartão',
+            ],
             intent: 'expense.ask_card',
           },
-          pending: { type: 'AWAITING_CARD', amountCents: action.amountCents, note: action.note },
+          pending: {
+            type: 'AWAITING_CARD',
+            amountCents: action.amountCents,
+            note: action.note,
+            suggestedName: action.cardName,
+          },
         };
       }
       cardId = card.id;

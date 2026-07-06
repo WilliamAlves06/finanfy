@@ -109,7 +109,14 @@ export function matchRule(rawText: string): Action | null {
     };
   }
 
-  // 6. ajuda
+  // 6. cadastrar cartão ("cadastrar cartão nubank", "novo cartão")
+  const newCard = text.match(/\b(?:cadastrar|criar|adicionar|novo)\s+cart[ao]o\s*([a-z0-9 ]*)/);
+  if (newCard) {
+    const name = (newCard[1] ?? '').trim();
+    return { kind: 'new_card', name: name || undefined };
+  }
+
+  // 7. ajuda
   if (/^(ajuda|oi|ola|menu|comecar|start|\/start|\?)$/.test(text)) return { kind: 'help' };
 
   return null; // MISS → IA

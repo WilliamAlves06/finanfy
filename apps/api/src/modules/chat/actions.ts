@@ -25,6 +25,7 @@ export type Action =
       kind: 'query';
       type: 'saldo' | 'posso_gastar' | 'mensal' | 'vencidas' | 'reserva' | 'economia';
     }
+  | { kind: 'new_card'; name?: string }
   | { kind: 'help' };
 
 /**
@@ -36,8 +37,15 @@ export type PendingState =
   | { type: 'AWAITING_AMOUNT'; draft: Action } // sabe a intenção, falta o valor
   | { type: 'AWAITING_INCOME_SOURCE'; amountCents: number; clientName?: string; note?: string }
   | { type: 'AWAITING_EXPENSE_METHOD'; amountCents: number; note?: string }
-  | { type: 'AWAITING_CARD'; amountCents: number; note?: string } // qual cartão?
-  | { type: 'AWAITING_WITHDRAW_DESTINATION'; amountCents: number };
+  | { type: 'AWAITING_CARD'; amountCents: number; note?: string; suggestedName?: string } // qual cartão?
+  | { type: 'AWAITING_WITHDRAW_DESTINATION'; amountCents: number }
+  // assistente de cadastro de cartão (pode continuar uma despesa pendente ao final)
+  | {
+      type: 'NEW_CARD';
+      step: 'NAME' | 'LIMIT' | 'CLOSING' | 'DUE';
+      draft: { name?: string; limitCents?: number; closingDay?: number };
+      thenExpense?: { amountCents: number; note?: string };
+    };
 
 export interface Reply {
   text: string;
