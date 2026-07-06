@@ -20,7 +20,19 @@ async function bootstrap() {
   // formato de erro único — docs/12
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  app.enableCors({ origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000' });
+  // WEB_ORIGIN aceita lista separada por vírgula; defaults cobrem dev e produção
+  const origins = (process.env.WEB_ORIGIN ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'https://finanfy.vercel.app',
+      /https:\/\/finanfy-.*\.vercel\.app$/,
+      ...origins,
+    ],
+  });
   app.setGlobalPrefix('v1', { exclude: ['health'] });
 
   // Swagger — docs/12
