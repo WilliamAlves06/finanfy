@@ -115,6 +115,7 @@ model User {
   conversations    Conversation[]
   notifications    Notification[]
   auditLogs        AuditLog[]
+  telegramLinkCode TelegramLinkCode?
 
   @@index([deletedAt])
 }
@@ -133,16 +134,33 @@ model RefreshToken {
 }
 
 model ChannelIdentity {
-  id         String          @id @default(cuid())
-  userId     String
-  user       User            @relation(fields: [userId], references: [id])
-  provider   ChannelProvider
-  externalId String // ex.: chat id do Telegram
-  createdAt  DateTime        @default(now())
-  deletedAt  DateTime?
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  provider    ChannelProvider
+  externalId  String // ex.: chat id do Telegram
+  displayName String? // nome exibido no canal (Telegram first_name)
+  username    String? // @username no canal
+  connectedAt DateTime? // quando foi vinculado
+  createdAt   DateTime        @default(now())
+  deletedAt   DateTime?
 
   @@unique([provider, externalId])
   @@index([userId])
+}
+
+// Código de vínculo do Telegram: persistido (sobrevive a restart), expira e é
+// de uso único. Um por usuário (upsert) — gerar um novo invalida o anterior.
+model TelegramLinkCode {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  code      String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([code])
 }
 
 // ─────────────────────────── CLIENTES ───────────────────────────

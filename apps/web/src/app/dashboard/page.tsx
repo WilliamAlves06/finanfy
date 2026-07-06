@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, getTokens } from '@/lib/api';
+import { TelegramCard } from '@/components/TelegramCard';
 
 interface Summary {
   balanceFormatted: string;
@@ -45,7 +46,6 @@ export default function DashboardPage() {
   const [canSpend, setCanSpend] = useState<CanSpend | null>(null);
   const [incomes, setIncomes] = useState<Entry[]>([]);
   const [expenses, setExpenses] = useState<Entry[]>([]);
-  const [linkCode, setLinkCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getTokens()) {
@@ -134,25 +134,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <section className="mt-6 rounded-2xl bg-white p-5 shadow">
-        <h2 className="font-semibold">Conectar Telegram</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Fale com o Fin pelo Telegram: gere um código e mande <code>vincular CODIGO</code> para o
-          bot.
-        </p>
-        {linkCode ? (
-          <p className="mt-3 text-2xl font-bold tracking-widest text-emerald-600">{linkCode}</p>
-        ) : (
-          <button
-            className="mt-3 rounded-xl border border-emerald-600 px-4 py-2 text-emerald-700"
-            onClick={() =>
-              api<{ code: string }>('/channels/telegram/link-code').then((r) => setLinkCode(r.code))
-            }
-          >
-            Gerar código
-          </button>
-        )}
-      </section>
+      <TelegramCard />
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Headers,
@@ -15,7 +16,11 @@ import { ChatService } from '../chat/chat.service';
 import { TelegramService } from './telegram.service';
 
 interface TelegramUpdate {
-  message?: { chat?: { id?: number | string }; text?: string };
+  message?: {
+    chat?: { id?: number | string };
+    from?: { first_name?: string; username?: string };
+    text?: string;
+  };
 }
 
 @ApiTags('channels')
@@ -26,12 +31,29 @@ export class TelegramController {
     private readonly chat: ChatService,
   ) {}
 
-  /** Código de vínculo — mostrado no painel web (docs/11 Configurações). */
+  /** Estado da conexão do usuário (painel). */
+  @Get('status')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  status(@CurrentUser() userId: string) {
+    return this.telegram.getConnection(userId);
+  }
+
+  /** Gera código de vínculo (409 se já conectado). */
   @Get('link-code')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   linkCode(@CurrentUser() userId: string) {
     return this.telegram.generateLinkCode(userId);
+  }
+
+  /** Desvincula o Telegram do usuário. */
+  @Delete()
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  unlink(@CurrentUser() userId: string) {
+    return this.telegram.unlink(userId);
   }
 
   /** Webhook público do bot (protegido pelo secret token do Telegram). */
@@ -52,12 +74,15 @@ export class TelegramController {
     // fluxo de vínculo: "vincular 123456" (docs/06)
     const linkMatch = text.match(/^\/?vincular\s+(\d{6})$/i);
     if (linkMatch) {
-      const ok = await this.telegram.tryLink(linkMatch[1]!, chatId);
+      const ok = await this.telegram.tryLink(linkMatch[1]!, chatId, {
+        firstName: update.message?.from?.first_name,
+        username: update.message?.from?.username,
+      });
       await this.telegram.send(
         chatId,
         ok
-          ? 'Pronto! Sua conta está conectada. 🎉 Pode falar comigo: "ganhei 180", "saldo"...'
-          : 'Código inválido ou expirado. Gere um novo no painel (Configurações → Conectar Telegram).',
+          ? 'Prontinho! Sua conta está conectada. 🎉 Pode falar comigo: "ganhei 180", "saldo"...'
+          : 'Esse código não vale mais (expirou ou já foi usado). Gere um novo no painel → Conectar Telegram.',
       );
       return { ok: true };
     }
@@ -66,7 +91,7 @@ export class TelegramController {
     if (!userId) {
       await this.telegram.send(
         chatId,
-        'Oi! 👋 Para começar, conecte sua conta: entre no painel do Finanfy, vá em Configurações → Conectar Telegram e me mande: vincular SEU_CODIGO',
+        'Oi! 👋 Para começar, conecte sua conta: entre no painel do Finanfy, toque em "Conectar Telegram", gere o código e me mande: vincular SEU_CODIGO',
       );
       return { ok: true };
     }
