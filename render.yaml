@@ -4,16 +4,12 @@
 services:
   - type: web
     name: finanfy-api
-    runtime: node
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
     region: ohio # us-east-2, mesma região do Supabase
-    # Render detecta pnpm pelo campo packageManager do package.json (corepack)
-    buildCommand: pnpm install --frozen-lockfile && pnpm exec prisma generate && pnpm --filter @finanfy/api build
-    startCommand: node apps/api/dist/main.js
     healthCheckPath: /health
     envVars:
-      - key: NODE_VERSION
-        value: '22'
       - key: NODE_ENV
         value: production
       - key: TZ
