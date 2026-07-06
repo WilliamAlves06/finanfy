@@ -196,11 +196,8 @@ export class ActionExecutorService {
           },
         };
       }
-      const card = action.cardName
-        ? await this.cards.findByName(userId, action.cardName)
-        : names.length === 1
-          ? await this.cards.findByName(userId, names[0]!)
-          : null;
+      // sempre perguntar qual cartão quando não foi dito — nunca escolher sozinho
+      const card = action.cardName ? await this.cards.findByName(userId, action.cardName) : null;
       if (!card) {
         return {
           reply: {
