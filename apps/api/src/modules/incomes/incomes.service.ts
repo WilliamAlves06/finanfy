@@ -53,16 +53,30 @@ export class IncomesService {
         data: { balanceCents: { increment: input.amountCents } },
       });
       await this.audit.log(
-        { userId, action: 'income.create', entity: 'Income', entityId: created.id, after: created, channel: input.channel },
+        {
+          userId,
+          action: 'income.create',
+          entity: 'Income',
+          entityId: created.id,
+          after: created,
+          channel: input.channel,
+        },
         tx,
       );
       return [created, updated] as const;
     });
 
-    return { income, balanceCents: user.balanceCents, balanceFormatted: formatCents(user.balanceCents) };
+    return {
+      income,
+      balanceCents: user.balanceCents,
+      balanceFormatted: formatCents(user.balanceCents),
+    };
   }
 
-  list(userId: string, opts: { from?: string; to?: string; page?: number; pageSize?: number } = {}) {
+  list(
+    userId: string,
+    opts: { from?: string; to?: string; page?: number; pageSize?: number } = {},
+  ) {
     const page = Math.max(1, opts.page ?? 1);
     const pageSize = Math.min(100, opts.pageSize ?? 20);
     const dateFilter =

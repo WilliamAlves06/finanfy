@@ -36,7 +36,11 @@ export class NotificationsService {
       });
       if (hasIncome > 0) continue;
 
-      await this.notify(user.id, 'NO_INCOME_TODAY', 'Você ainda não registrou quanto ganhou hoje. 🙂 Me conta: quanto foi?');
+      await this.notify(
+        user.id,
+        'NO_INCOME_TODAY',
+        'Você ainda não registrou quanto ganhou hoje. 🙂 Me conta: quanto foi?',
+      );
       sent++;
     }
     this.logger.log(`18h: ${sent} lembretes de receita enviados`);

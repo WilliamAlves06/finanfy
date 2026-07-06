@@ -25,7 +25,11 @@ export class ReportsService {
       this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
       this.prisma.reserve.findUnique({ where: { userId } }),
       this.prisma.recurringCharge.aggregate({
-        where: { recurringBill: { userId }, status: { in: ['PENDING', 'OVERDUE'] }, deletedAt: null },
+        where: {
+          recurringBill: { userId },
+          status: { in: ['PENDING', 'OVERDUE'] },
+          deletedAt: null,
+        },
         _sum: { amountCents: true },
         _count: true,
       }),

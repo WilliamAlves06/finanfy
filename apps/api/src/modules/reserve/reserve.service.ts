@@ -26,7 +26,11 @@ export class ReserveService {
   }
 
   /** "Guardei 300" — cria a reserva se não existir. */
-  async deposit(userId: string, amountCents: number, channel?: 'TELEGRAM' | 'WEB' | 'WHATSAPP' | 'ANDROID' | 'API') {
+  async deposit(
+    userId: string,
+    amountCents: number,
+    channel?: 'TELEGRAM' | 'WEB' | 'WHATSAPP' | 'ANDROID' | 'API',
+  ) {
     const reserve = await this.prisma.$transaction(async (tx) => {
       const r = await tx.reserve.upsert({
         where: { userId },
@@ -37,12 +41,22 @@ export class ReserveService {
         data: { reserveId: r.id, type: 'IN', amountCents },
       });
       await this.audit.log(
-        { userId, action: 'reserve.deposit', entity: 'Reserve', entityId: r.id, after: { amountCents }, channel },
+        {
+          userId,
+          action: 'reserve.deposit',
+          entity: 'Reserve',
+          entityId: r.id,
+          after: { amountCents },
+          channel,
+        },
         tx,
       );
       return r;
     });
-    return { balanceCents: reserve.balanceCents, balanceFormatted: formatCents(reserve.balanceCents) };
+    return {
+      balanceCents: reserve.balanceCents,
+      balanceFormatted: formatCents(reserve.balanceCents),
+    };
   }
 
   /**
@@ -78,12 +92,22 @@ export class ReserveService {
       });
       // ⚠️ intencionalmente NÃO cria Expense aqui — regra do briefing (UC-04)
       await this.audit.log(
-        { userId, action: 'reserve.withdraw', entity: 'Reserve', entityId: r.id, after: { amountCents, destination }, channel },
+        {
+          userId,
+          action: 'reserve.withdraw',
+          entity: 'Reserve',
+          entityId: r.id,
+          after: { amountCents, destination },
+          channel,
+        },
         tx,
       );
       return updated;
     });
-    return { balanceCents: reserve.balanceCents, balanceFormatted: formatCents(reserve.balanceCents) };
+    return {
+      balanceCents: reserve.balanceCents,
+      balanceFormatted: formatCents(reserve.balanceCents),
+    };
   }
 
   /** Débito interno usado pela despesa paga com CAIXINHA (UC-02). */

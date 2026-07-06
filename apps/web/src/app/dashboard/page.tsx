@@ -52,11 +52,21 @@ export default function DashboardPage() {
       router.replace('/login');
       return;
     }
-    api<Summary>('/reports/summary').then(setSummary).catch(() => {});
-    api<Monthly>('/reports/monthly').then(setMonthly).catch(() => {});
-    api<CanSpend>('/reports/can-spend').then(setCanSpend).catch(() => {});
-    api<{ data: Entry[] }>('/incomes?pageSize=5').then((r) => setIncomes(r.data)).catch(() => {});
-    api<{ data: Entry[] }>('/expenses?pageSize=5').then((r) => setExpenses(r.data)).catch(() => {});
+    api<Summary>('/reports/summary')
+      .then(setSummary)
+      .catch(() => {});
+    api<Monthly>('/reports/monthly')
+      .then(setMonthly)
+      .catch(() => {});
+    api<CanSpend>('/reports/can-spend')
+      .then(setCanSpend)
+      .catch(() => {});
+    api<{ data: Entry[] }>('/incomes?pageSize=5')
+      .then((r) => setIncomes(r.data))
+      .catch(() => {});
+    api<{ data: Entry[] }>('/expenses?pageSize=5')
+      .then((r) => setExpenses(r.data))
+      .catch(() => {});
   }, [router]);
 
   return (
@@ -71,10 +81,16 @@ export default function DashboardPage() {
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card title="Saldo" value={summary?.balanceFormatted ?? '—'} accent="text-emerald-600" />
         <Card title="Caixinha" value={summary?.reserveFormatted ?? '—'} accent="text-blue-600" />
-        <Card title="Posso gastar" value={canSpend?.canSpendFormatted ?? '—'} accent="text-slate-800" />
+        <Card
+          title="Posso gastar"
+          value={canSpend?.canSpendFormatted ?? '—'}
+          accent="text-slate-800"
+        />
         <Card
           title="Contas pendentes"
-          value={summary ? `${summary.pendingBillsCount} (${money(summary.pendingBillsCents)})` : '—'}
+          value={
+            summary ? `${summary.pendingBillsCount} (${money(summary.pendingBillsCents)})` : '—'
+          }
           accent={summary && summary.pendingBillsCount > 0 ? 'text-red-600' : 'text-slate-800'}
         />
       </section>
@@ -103,13 +119,17 @@ export default function DashboardPage() {
         <ListCard
           title="Últimas receitas"
           entries={incomes}
-          render={(e) => `${money(e.amountCents)} · ${e.source ?? ''}${e.client ? ` · ${e.client.name}` : ''}`}
+          render={(e) =>
+            `${money(e.amountCents)} · ${e.source ?? ''}${e.client ? ` · ${e.client.name}` : ''}`
+          }
           color="text-emerald-700"
         />
         <ListCard
           title="Últimas despesas"
           entries={expenses}
-          render={(e) => `${money(e.amountCents)} · ${e.method ?? ''}${e.note ? ` · ${e.note}` : ''}`}
+          render={(e) =>
+            `${money(e.amountCents)} · ${e.method ?? ''}${e.note ? ` · ${e.note}` : ''}`
+          }
           color="text-red-700"
         />
       </div>
@@ -117,7 +137,8 @@ export default function DashboardPage() {
       <section className="mt-6 rounded-2xl bg-white p-5 shadow">
         <h2 className="font-semibold">Conectar Telegram</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Fale com o Fin pelo Telegram: gere um código e mande <code>vincular CODIGO</code> para o bot.
+          Fale com o Fin pelo Telegram: gere um código e mande <code>vincular CODIGO</code> para o
+          bot.
         </p>
         {linkCode ? (
           <p className="mt-3 text-2xl font-bold tracking-widest text-emerald-600">{linkCode}</p>

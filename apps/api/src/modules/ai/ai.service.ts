@@ -66,11 +66,15 @@ const TOOLS: LlmToolDef[] = [
   },
   {
     name: 'consultar',
-    description: 'Consulta saldo, quanto pode gastar, resumo do mês, contas vencidas, reserva ou economia do ano.',
+    description:
+      'Consulta saldo, quanto pode gastar, resumo do mês, contas vencidas, reserva ou economia do ano.',
     parameters: {
       type: 'object',
       properties: {
-        tipo: { type: 'string', enum: ['saldo', 'posso_gastar', 'mensal', 'vencidas', 'reserva', 'economia'] },
+        tipo: {
+          type: 'string',
+          enum: ['saldo', 'posso_gastar', 'mensal', 'vencidas', 'reserva', 'economia'],
+        },
       },
       required: ['tipo'],
     },
@@ -114,7 +118,10 @@ export class AiService {
           tools: TOOLS,
           temperature: 0.1,
         });
-        return { actions: result.toolCalls.map((tc) => this.toAction(tc)).filter(Boolean) as Action[], text: result.text };
+        return {
+          actions: result.toolCalls.map((tc) => this.toAction(tc)).filter(Boolean) as Action[],
+          text: result.text,
+        };
       } catch (e) {
         this.logger.warn(`Provider ${provider.name} falhou: ${(e as Error).message}`);
         // tenta o próximo (fallback — docs/07)
@@ -139,7 +146,13 @@ export class AiService {
         return {
           kind: 'expense',
           amountCents: cents,
-          method: asEnum(tc.args.forma, ['DINHEIRO', 'SALDO', 'CAIXINHA', 'CARTAO', 'PIX'] as const),
+          method: asEnum(tc.args.forma, [
+            'DINHEIRO',
+            'SALDO',
+            'CAIXINHA',
+            'CARTAO',
+            'PIX',
+          ] as const),
           note: asString(tc.args.descricao),
         };
       case 'guardar_caixinha':
@@ -151,7 +164,14 @@ export class AiService {
           destination: asEnum(tc.args.destino, ['APENAS', 'PAGAR_CONTA'] as const),
         };
       case 'consultar': {
-        const tipo = asEnum(tc.args.tipo, ['saldo', 'posso_gastar', 'mensal', 'vencidas', 'reserva', 'economia'] as const);
+        const tipo = asEnum(tc.args.tipo, [
+          'saldo',
+          'posso_gastar',
+          'mensal',
+          'vencidas',
+          'reserva',
+          'economia',
+        ] as const);
         return tipo ? { kind: 'query', type: tipo } : null;
       }
       default:

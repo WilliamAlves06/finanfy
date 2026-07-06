@@ -24,7 +24,8 @@ export function matchRule(rawText: string): Action | null {
 
   // relatórios rápidos
   if (/^(quanto )?posso gastar/.test(text)) return { kind: 'query', type: 'posso_gastar' };
-  if (/(relatorio|quanto (gastei|recebi|sobrou))/.test(text)) return { kind: 'query', type: 'mensal' };
+  if (/(relatorio|quanto (gastei|recebi|sobrou))/.test(text))
+    return { kind: 'query', type: 'mensal' };
   if (/(contas? (vencida|atrasada)|o que (ta|esta) vencido)/.test(text))
     return { kind: 'query', type: 'vencidas' };
   if (/(quanto.*(reserva|caixinha)|(reserva|caixinha)$)/.test(text) && !cents)
@@ -39,7 +40,7 @@ export function matchRule(rawText: string): Action | null {
   // 3. guardar na caixinha
   if (
     cents &&
-    (/\b(guardei|guardar|coloquei|botei)\b/.test(text) && /(caixinha|reserva)/.test(text) ||
+    ((/\b(guardei|guardar|coloquei|botei)\b/.test(text) && /(caixinha|reserva)/.test(text)) ||
       /^caixinha\s/.test(text) ||
       /^guardei\b/.test(text))
   ) {

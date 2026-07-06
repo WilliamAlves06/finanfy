@@ -70,12 +70,12 @@ Mantém a API acordada no free tier:
 
 ## Resumo do que fica no ar
 
-| Peça | Onde | URL |
-|---|---|---|
-| Web (painel + chat) | Vercel | `https://finanfy.vercel.app` |
-| API + crons | Render | `https://finanfy-api.onrender.com` |
-| Banco | Supabase | (interno) |
-| Bot | Telegram | @finanfybot |
+| Peça                | Onde     | URL                                |
+| ------------------- | -------- | ---------------------------------- |
+| Web (painel + chat) | Vercel   | `https://finanfy.vercel.app`       |
+| API + crons         | Render   | `https://finanfy-api.onrender.com` |
+| Banco               | Supabase | (interno)                          |
+| Bot                 | Telegram | @finanfybot                        |
 
 ## Problemas comuns
 

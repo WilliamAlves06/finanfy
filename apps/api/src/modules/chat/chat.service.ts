@@ -97,7 +97,10 @@ export class ChatService {
     const text = normalizeText(rawText);
     switch (pending.type) {
       case 'AWAITING_INCOME_SOURCE': {
-        const map: Record<string, Action['kind'] extends never ? never : 'DIARIA' | 'PIX' | 'SALARIO' | 'VENDA' | 'OUTRO'> = {
+        const map: Record<
+          string,
+          Action['kind'] extends never ? never : 'DIARIA' | 'PIX' | 'SALARIO' | 'VENDA' | 'OUTRO'
+        > = {
           diaria: 'DIARIA',
           pix: 'PIX',
           salario: 'SALARIO',
@@ -130,9 +133,17 @@ export class ChatService {
       }
       case 'AWAITING_WITHDRAW_DESTINATION': {
         if (/(so retirar|apenas|retirei apenas|nada)/.test(text))
-          return { kind: 'reserve_withdraw', amountCents: pending.amountCents, destination: 'APENAS' };
+          return {
+            kind: 'reserve_withdraw',
+            amountCents: pending.amountCents,
+            destination: 'APENAS',
+          };
         if (/(conta|pagar)/.test(text))
-          return { kind: 'reserve_withdraw', amountCents: pending.amountCents, destination: 'PAGAR_CONTA' };
+          return {
+            kind: 'reserve_withdraw',
+            amountCents: pending.amountCents,
+            destination: 'PAGAR_CONTA',
+          };
         return null;
       }
     }

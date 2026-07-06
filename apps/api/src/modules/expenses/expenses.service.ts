@@ -94,7 +94,14 @@ export class ExpensesService {
       });
 
       await this.audit.log(
-        { userId, action: 'expense.create', entity: 'Expense', entityId: expense.id, after: expense, channel: input.channel },
+        {
+          userId,
+          action: 'expense.create',
+          entity: 'Expense',
+          entityId: expense.id,
+          after: expense,
+          channel: input.channel,
+        },
         tx,
       );
 
@@ -105,7 +112,10 @@ export class ExpensesService {
     return { ...result, balanceFormatted: formatCents(result.balanceCents) };
   }
 
-  list(userId: string, opts: { from?: string; to?: string; page?: number; pageSize?: number } = {}) {
+  list(
+    userId: string,
+    opts: { from?: string; to?: string; page?: number; pageSize?: number } = {},
+  ) {
     const page = Math.max(1, opts.page ?? 1);
     const pageSize = Math.min(100, opts.pageSize ?? 20);
     const dateFilter =

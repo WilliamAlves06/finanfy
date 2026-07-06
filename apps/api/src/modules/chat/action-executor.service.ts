@@ -95,7 +95,9 @@ export class ActionExecutorService {
         return {
           reply: {
             text: `Despesa de ${formatCents(action.amountCents)} registrada (${action.method.toLowerCase()}). ✅\n${
-              action.method === 'CAIXINHA' ? `Caixinha agora: ${extra}.` : `Saldo disponível: ${extra}.`
+              action.method === 'CAIXINHA'
+                ? `Caixinha agora: ${extra}.`
+                : `Saldo disponível: ${extra}.`
             }`,
             intent: 'expense.created',
           },
@@ -116,7 +118,9 @@ export class ActionExecutorService {
 
       case 'reserve_withdraw': {
         if (!action.amountCents)
-          return { reply: { text: 'Quanto você quer tirar da caixinha?', intent: 'reserve.ask_amount' } };
+          return {
+            reply: { text: 'Quanto você quer tirar da caixinha?', intent: 'reserve.ask_amount' },
+          };
         if (!action.destination) {
           // ⚠️ regra: sempre perguntar o destino (UC-04)
           return {
@@ -128,7 +132,12 @@ export class ActionExecutorService {
             pending: { type: 'AWAITING_WITHDRAW_DESTINATION', amountCents: action.amountCents },
           };
         }
-        const res = await this.reserve.withdraw(userId, action.amountCents, action.destination, channel);
+        const res = await this.reserve.withdraw(
+          userId,
+          action.amountCents,
+          action.destination,
+          channel,
+        );
         return {
           reply: {
             text: `Feito! Sua caixinha agora tem ${res.balanceFormatted}.`,
@@ -184,9 +193,11 @@ export class ActionExecutorService {
       }
       case 'vencidas': {
         const list = await this.reports.overdue(userId);
-        if (list.length === 0) return { text: 'Nenhuma conta vencida. 👏', intent: 'query.vencidas' };
+        if (list.length === 0)
+          return { text: 'Nenhuma conta vencida. 👏', intent: 'query.vencidas' };
         const lines = list.map(
-          (c) => `• ${c.recurringBill.name}: ${formatCents(c.amountCents)} (venceu ${c.dueDate.toISOString().slice(0, 10)})`,
+          (c) =>
+            `• ${c.recurringBill.name}: ${formatCents(c.amountCents)} (venceu ${c.dueDate.toISOString().slice(0, 10)})`,
         );
         return { text: `Contas vencidas:\n${lines.join('\n')}`, intent: 'query.vencidas' };
       }
@@ -196,7 +207,10 @@ export class ActionExecutorService {
       }
       case 'economia': {
         const s = await this.reports.savings(userId);
-        return { text: `Em ${s.year} você já economizou ${s.savedFormatted}. 💪`, intent: 'query.economia' };
+        return {
+          text: `Em ${s.year} você já economizou ${s.savedFormatted}. 💪`,
+          intent: 'query.economia',
+        };
       }
       default:
         return { text: 'Não entendi o que você quer consultar.', intent: 'query.unknown' };

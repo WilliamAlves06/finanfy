@@ -5,11 +5,20 @@ export type PaymentMethod = 'DINHEIRO' | 'SALDO' | 'CAIXINHA' | 'CARTAO' | 'PIX'
 export type Channel = 'TELEGRAM' | 'WEB' | 'WHATSAPP' | 'ANDROID' | 'API';
 
 export type Action =
-  | { kind: 'income'; amountCents?: number; source?: IncomeSource; clientName?: string; note?: string }
+  | {
+      kind: 'income';
+      amountCents?: number;
+      source?: IncomeSource;
+      clientName?: string;
+      note?: string;
+    }
   | { kind: 'expense'; amountCents?: number; method?: PaymentMethod; note?: string }
   | { kind: 'reserve_deposit'; amountCents?: number }
   | { kind: 'reserve_withdraw'; amountCents?: number; destination?: 'APENAS' | 'PAGAR_CONTA' }
-  | { kind: 'query'; type: 'saldo' | 'posso_gastar' | 'mensal' | 'vencidas' | 'reserva' | 'economia' }
+  | {
+      kind: 'query';
+      type: 'saldo' | 'posso_gastar' | 'mensal' | 'vencidas' | 'reserva' | 'economia';
+    }
   | { kind: 'help' };
 
 /** Estado de diálogo pendente — aguardando dado obrigatório (docs/08). */

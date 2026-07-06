@@ -25,7 +25,9 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const refreshSummary = useCallback(() => {
-    api<Summary>('/reports/summary').then(setSummary).catch(() => {});
+    api<Summary>('/reports/summary')
+      .then(setSummary)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

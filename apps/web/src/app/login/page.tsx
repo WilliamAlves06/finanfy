@@ -38,7 +38,9 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
         <h1 className="text-center text-3xl font-bold text-emerald-600">Finanfy</h1>
-        <p className="mt-1 text-center text-sm text-slate-500">Seu dinheiro organizado, conversando.</p>
+        <p className="mt-1 text-center text-sm text-slate-500">
+          Seu dinheiro organizado, conversando.
+        </p>
 
         <form onSubmit={submit} className="mt-8 space-y-4">
           {mode === 'register' && (

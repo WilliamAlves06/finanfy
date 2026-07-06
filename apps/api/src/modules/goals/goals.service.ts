@@ -21,7 +21,13 @@ export class GoalsService {
         deadline: data.deadline ? new Date(`${data.deadline}T00:00:00.000Z`) : undefined,
       },
     });
-    await this.audit.log({ userId, action: 'goal.create', entity: 'Goal', entityId: goal.id, after: goal });
+    await this.audit.log({
+      userId,
+      action: 'goal.create',
+      entity: 'Goal',
+      entityId: goal.id,
+      after: goal,
+    });
     return goal;
   }
 
