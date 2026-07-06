@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
+import { CardsModule } from '../cards/cards.module';
 import { ClientsModule } from '../clients/clients.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { IncomesModule } from '../incomes/incomes.module';
@@ -10,7 +11,15 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 
 @Module({
-  imports: [AiModule, IncomesModule, ExpensesModule, ReserveModule, ReportsModule, ClientsModule],
+  imports: [
+    AiModule,
+    IncomesModule,
+    ExpensesModule,
+    ReserveModule,
+    ReportsModule,
+    ClientsModule,
+    CardsModule,
+  ],
   controllers: [ChatController],
   providers: [ChatService, ActionExecutorService],
   exports: [ChatService],

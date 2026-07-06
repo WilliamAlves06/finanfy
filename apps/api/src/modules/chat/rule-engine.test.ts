@@ -84,4 +84,63 @@ describe('Motor de regras sem IA (docs/08)', () => {
   it('mensagem sem sentido financeiro → MISS', () => {
     expect(matchRule('qual a previsão do tempo?')).toBeNull();
   });
+
+  // ── parser NLU: entidades extraídas mesmo SEM valor (feedback do usuário) ──
+
+  it('comprei um lanche no cartão mercado pago → despesa sem valor, com cartão', () => {
+    expect(matchRule('Comprei um lanche no cartão mercado pago')).toMatchObject({
+      kind: 'expense',
+      amountCents: undefined,
+      method: 'CARTAO',
+      cardName: 'mercado pago',
+    });
+  });
+
+  it('paguei um pastel no nubank via cartão → captura o nome do cartão', () => {
+    expect(matchRule('paguei um pastel no cartão nubank')).toMatchObject({
+      kind: 'expense',
+      method: 'CARTAO',
+      cardName: 'nubank',
+    });
+  });
+
+  it('gastei 40 no pix → despesa já com forma PIX', () => {
+    expect(matchRule('gastei 40 no pix')).toMatchObject({
+      kind: 'expense',
+      amountCents: 4000,
+      method: 'PIX',
+    });
+  });
+
+  it('paguei 30 em dinheiro → forma DINHEIRO', () => {
+    expect(matchRule('paguei 30 em dinheiro')).toMatchObject({
+      kind: 'expense',
+      amountCents: 3000,
+      method: 'DINHEIRO',
+    });
+  });
+
+  it('recebi um pix → receita sem valor, origem PIX (vai perguntar o valor)', () => {
+    expect(matchRule('recebi um pix')).toMatchObject({
+      kind: 'income',
+      amountCents: undefined,
+      source: 'PIX',
+    });
+  });
+
+  it('ganhei 200 na maria → cliente com preposição "na"', () => {
+    expect(matchRule('ganhei 200 na maria')).toMatchObject({
+      kind: 'income',
+      amountCents: 20000,
+      clientName: 'maria',
+    });
+  });
+
+  it('recebi 300 de diária → origem DIARIA detectada', () => {
+    expect(matchRule('recebi 300 de diária')).toMatchObject({
+      kind: 'income',
+      amountCents: 30000,
+      source: 'DIARIA',
+    });
+  });
 });

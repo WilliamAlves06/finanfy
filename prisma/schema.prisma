@@ -397,12 +397,14 @@ model GoalContribution {
 // ─────────────────────────── CONVERSA / IA ───────────────────────────
 
 model Conversation {
-  id        String          @id @default(cuid())
-  userId    String
-  user      User            @relation(fields: [userId], references: [id])
-  channel   ChannelProvider
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  channel      ChannelProvider
+  // FSM: estado pendente do diálogo (aguardando valor/forma/cartão/destino) — docs/08
+  pendingState Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   messages Message[]
 

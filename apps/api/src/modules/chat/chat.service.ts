@@ -1,20 +1,19 @@
 import { Injectable, Optional } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { Action, Channel, PendingState, Reply } from './actions';
 import { ActionExecutorService } from './action-executor.service';
-import { normalizeText } from './normalize';
+import { normalizeText, parseBRLToCents } from './normalize';
 import { matchRule } from './rule-engine';
 
 /**
- * Message Router (docs/06): pendência → regras → IA.
- * Persiste Conversation/Message (memória de contexto + métrica usedAi).
- * Estado pendente em memória (MVP single-instance; migrar p/ Redis depois).
+ * Message Router + FSM (docs/06/08): pendência → parser → IA.
+ * O estado da conversa é PERSISTIDO em Conversation.pendingState —
+ * sobrevive a restart/deploy e funciona com várias instâncias.
  */
 @Injectable()
 export class ChatService {
-  private readonly pending = new Map<string, PendingState>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly executor: ActionExecutorService,
@@ -27,53 +26,58 @@ export class ChatService {
 
     let reply: Reply;
     try {
-      reply = await this.route(userId, text, channel);
+      reply = await this.route(conversation.id, userId, text, channel);
     } catch (e) {
+      // erro NÃO apaga o estado da conversa — o usuário pode tentar de novo
       const msg =
         e instanceof Error && 'response' in e
           ? String((e as { response?: { message?: string } }).response?.message ?? e.message)
           : 'Ops, algo deu errado. Tenta de novo?';
       reply = { text: msg, intent: 'error' };
-      this.pending.delete(userId);
     }
 
     await this.saveMessage(conversation.id, 'ASSISTANT', reply.text, reply.intent, reply.usedAi);
     return reply;
   }
 
-  private async route(userId: string, text: string, channel: Channel): Promise<Reply> {
-    // 1. diálogo pendente? resposta curta completa a ação sem IA (docs/08)
-    const pending = this.pending.get(userId);
+  private async route(
+    conversationId: string,
+    userId: string,
+    text: string,
+    channel: Channel,
+  ): Promise<Reply> {
+    // 1. FSM: há estado pendente? a mensagem é a resposta do que falta
+    const pending = await this.loadPending(conversationId);
     if (pending) {
       const action = this.resolvePending(pending, text);
-      if (action) {
-        this.pending.delete(userId);
-        return this.runAction(userId, action, channel);
-      }
-      // o usuário mudou de assunto? nova intenção clara cancela a pendência
+      if (action) return this.runAction(conversationId, userId, action, channel);
+
+      // não era a resposta esperada — o usuário mudou de assunto?
       const newIntent = matchRule(text);
-      if (newIntent) {
-        this.pending.delete(userId);
-        return this.runAction(userId, newIntent, channel);
-      }
-      // não entendeu a resposta → repete a pergunta
+      if (newIntent) return this.runAction(conversationId, userId, newIntent, channel);
+
+      // repete a pergunta (mantém o estado)
       const again = await this.executor.execute(userId, this.pendingToAction(pending), channel);
       return { ...again.reply, text: `Não entendi. ${again.reply.text}` };
     }
 
-    // 2. motor de regras (sem IA)
+    // 2. parser NLU (sem IA)
     const ruleAction = matchRule(text);
-    if (ruleAction) return this.runAction(userId, ruleAction, channel);
+    if (ruleAction) return this.runAction(conversationId, userId, ruleAction, channel);
 
-    // 3. IA (frases compostas/complexas)
-    if (this.ai?.isConfigured()) {
+    // 3. IA (frases compostas/complexas) — só para frases com substância:
+    // texto curto sem número nem verbo de ação não é comando financeiro (evita
+    // a IA "chutar" intenção em mensagens soltas)
+    const words = normalizeText(text).split(' ').length;
+    const hasSubstance = words >= 3 || /\d/.test(text);
+    if (hasSubstance && this.ai?.isConfigured()) {
       const aiResult = await this.ai.interpret(userId, text);
       if (aiResult.actions.length > 0) {
         const parts: string[] = [];
         for (const action of aiResult.actions) {
-          const r = await this.runAction(userId, action, channel);
+          const r = await this.runAction(conversationId, userId, action, channel);
           parts.push(r.text);
-          if (this.pending.get(userId)) break; // parou numa pergunta — espera resposta
+          if (await this.loadPending(conversationId)) break; // parou numa pergunta
         }
         return { text: parts.join('\n\n'), usedAi: true, intent: 'ai.multi' };
       }
@@ -86,21 +90,30 @@ export class ChatService {
     };
   }
 
-  private async runAction(userId: string, action: Action, channel: Channel): Promise<Reply> {
+  private async runAction(
+    conversationId: string,
+    userId: string,
+    action: Action,
+    channel: Channel,
+  ): Promise<Reply> {
     const { reply, pending } = await this.executor.execute(userId, action, channel);
-    if (pending) this.pending.set(userId, pending);
+    await this.savePending(conversationId, pending ?? null);
     return reply;
   }
 
-  /** Resposta curta ("pix", "cartão", "só retirar") completa o estado pendente. */
+  /** FSM: interpreta a resposta curta conforme o estado atual. */
   private resolvePending(pending: PendingState, rawText: string): Action | null {
     const text = normalizeText(rawText);
+
     switch (pending.type) {
+      case 'AWAITING_AMOUNT': {
+        const cents = parseBRLToCents(text);
+        if (!cents) return null;
+        return { ...pending.draft, amountCents: cents } as Action;
+      }
+
       case 'AWAITING_INCOME_SOURCE': {
-        const map: Record<
-          string,
-          Action['kind'] extends never ? never : 'DIARIA' | 'PIX' | 'SALARIO' | 'VENDA' | 'OUTRO'
-        > = {
+        const map: Record<string, 'DIARIA' | 'PIX' | 'SALARIO' | 'VENDA' | 'OUTRO'> = {
           diaria: 'DIARIA',
           pix: 'PIX',
           salario: 'SALARIO',
@@ -118,6 +131,7 @@ export class ChatService {
           note: pending.note,
         };
       }
+
       case 'AWAITING_EXPENSE_METHOD': {
         const map: Record<string, 'DINHEIRO' | 'SALDO' | 'CAIXINHA' | 'CARTAO' | 'PIX'> = {
           dinheiro: 'DINHEIRO',
@@ -125,14 +139,34 @@ export class ChatService {
           caixinha: 'CAIXINHA',
           reserva: 'CAIXINHA',
           cartao: 'CARTAO',
+          credito: 'CARTAO',
           pix: 'PIX',
         };
         const method = Object.entries(map).find(([k]) => text.includes(k))?.[1];
         if (!method) return null;
-        return { kind: 'expense', amountCents: pending.amountCents, method, note: pending.note };
+        // se já disse o cartão junto ("cartao nubank"), aproveita
+        const cardName = text.replace(/cart[ao]o|credito|no|de/g, '').trim() || undefined;
+        return {
+          kind: 'expense',
+          amountCents: pending.amountCents,
+          method,
+          cardName: method === 'CARTAO' ? cardName : undefined,
+          note: pending.note,
+        };
       }
+
+      case 'AWAITING_CARD':
+        // qualquer texto aqui É um nome de cartão — nunca vai para a IA
+        return {
+          kind: 'expense',
+          amountCents: pending.amountCents,
+          method: 'CARTAO',
+          cardName: rawText.trim(),
+          note: pending.note,
+        };
+
       case 'AWAITING_WITHDRAW_DESTINATION': {
-        if (/(so retirar|apenas|retirei apenas|nada)/.test(text))
+        if (/(so retirar|apenas|retirei apenas|nada|so tirar)/.test(text))
           return {
             kind: 'reserve_withdraw',
             amountCents: pending.amountCents,
@@ -151,13 +185,43 @@ export class ChatService {
 
   private pendingToAction(pending: PendingState): Action {
     switch (pending.type) {
+      case 'AWAITING_AMOUNT':
+        return pending.draft;
       case 'AWAITING_INCOME_SOURCE':
-        return { kind: 'income', amountCents: pending.amountCents, clientName: pending.clientName };
+        return {
+          kind: 'income',
+          amountCents: pending.amountCents,
+          clientName: pending.clientName,
+        };
       case 'AWAITING_EXPENSE_METHOD':
         return { kind: 'expense', amountCents: pending.amountCents, note: pending.note };
+      case 'AWAITING_CARD':
+        return {
+          kind: 'expense',
+          amountCents: pending.amountCents,
+          method: 'CARTAO',
+          note: pending.note,
+        };
       case 'AWAITING_WITHDRAW_DESTINATION':
         return { kind: 'reserve_withdraw', amountCents: pending.amountCents };
     }
+  }
+
+  // ── persistência da FSM ──
+
+  private async loadPending(conversationId: string): Promise<PendingState | null> {
+    const c = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { pendingState: true },
+    });
+    return (c?.pendingState as PendingState | null) ?? null;
+  }
+
+  private savePending(conversationId: string, pending: PendingState | null) {
+    return this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { pendingState: pending === null ? Prisma.DbNull : (pending as Prisma.InputJsonValue) },
+    });
   }
 
   private async getOrCreateConversation(userId: string, channel: Channel) {

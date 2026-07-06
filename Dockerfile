@@ -16,4 +16,5 @@ RUN pnpm --filter @finanfy/api build
 
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main.js"]
+# aplica migrações pendentes antes de subir (idempotente)
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node apps/api/dist/main.js"]

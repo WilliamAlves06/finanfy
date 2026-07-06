@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { formatCents } from '../../common/utils/dates';
+import { CardsService } from '../cards/cards.service';
 import { ClientsService } from '../clients/clients.service';
 import { ExpensesService } from '../expenses/expenses.service';
 import { IncomesService } from '../incomes/incomes.service';
@@ -8,9 +9,9 @@ import { ReserveService } from '../reserve/reserve.service';
 import { Action, Channel, PendingState, Reply } from './actions';
 
 /**
- * Executa ações do assistente. Regras e IA convergem aqui — o LLM NUNCA
- * escreve no banco direto (docs/07). Dado obrigatório faltando → devolve
- * pergunta + estado pendente (nunca assume — docs/01).
+ * Executa ações do assistente (parser e IA convergem aqui — o LLM nunca
+ * escreve no banco). Dado obrigatório faltando → pergunta + estado FSM.
+ * Regra de ouro: nunca assumir valor, forma ou destino (docs/01).
  */
 @Injectable()
 export class ActionExecutorService {
@@ -20,93 +21,26 @@ export class ActionExecutorService {
     private readonly reserve: ReserveService,
     private readonly reports: ReportsService,
     private readonly clients: ClientsService,
+    private readonly cards: CardsService,
   ) {}
 
   async execute(
     userId: string,
     action: Action,
     channel: Channel,
-  ): Promise<{ reply: Reply; pending?: PendingState }> {
+  ): Promise<{ reply: Reply; pending?: PendingState | null }> {
     switch (action.kind) {
-      case 'income': {
-        if (!action.amountCents)
-          return { reply: { text: 'Quanto você recebeu?', intent: 'income.ask_amount' } };
-        if (!action.source) {
-          return {
-            reply: {
-              text: `Anotado ${formatCents(action.amountCents)}! De onde veio esse dinheiro?`,
-              quickReplies: ['Diária', 'PIX', 'Salário', 'Venda', 'Outro'],
-              intent: 'income.ask_source',
-            },
-            pending: {
-              type: 'AWAITING_INCOME_SOURCE',
-              amountCents: action.amountCents,
-              clientName: action.clientName,
-              note: action.note,
-            },
-          };
-        }
-        const client = action.clientName
-          ? await this.clients.findByName(userId, action.clientName)
-          : null;
-        const res = await this.incomes.create(userId, {
-          amountCents: action.amountCents,
-          source: action.source,
-          clientId: client?.id,
-          note: action.note,
-          channel,
-        });
-        return {
-          reply: {
-            text: `Receita de ${formatCents(action.amountCents)} registrada! 🎉\nSeu saldo agora é ${res.balanceFormatted}.`,
-            intent: 'income.created',
-          },
-        };
-      }
-
-      case 'expense': {
-        if (!action.amountCents)
-          return { reply: { text: 'Quanto você pagou?', intent: 'expense.ask_amount' } };
-        if (!action.method) {
-          // ⚠️ regra inegociável: forma de pagamento sempre perguntada (UC-02)
-          return {
-            reply: {
-              text: `Ok, ${formatCents(action.amountCents)}${action.note ? ` (${action.note})` : ''}. Como foi pago?`,
-              quickReplies: ['Dinheiro', 'PIX', 'Saldo', 'Caixinha', 'Cartão'],
-              intent: 'expense.ask_method',
-            },
-            pending: {
-              type: 'AWAITING_EXPENSE_METHOD',
-              amountCents: action.amountCents,
-              note: action.note,
-            },
-          };
-        }
-        const res = await this.expenses.create(userId, {
-          amountCents: action.amountCents,
-          method: action.method,
-          note: action.note,
-          channel,
-        });
-        const extra =
-          action.method === 'CAIXINHA'
-            ? (await this.reserve.getBalance(userId)).balanceFormatted
-            : res.balanceFormatted;
-        return {
-          reply: {
-            text: `Despesa de ${formatCents(action.amountCents)} registrada (${action.method.toLowerCase()}). ✅\n${
-              action.method === 'CAIXINHA'
-                ? `Caixinha agora: ${extra}.`
-                : `Saldo disponível: ${extra}.`
-            }`,
-            intent: 'expense.created',
-          },
-        };
-      }
-
+      case 'income':
+        return this.executeIncome(userId, action, channel);
+      case 'expense':
+        return this.executeExpense(userId, action, channel);
       case 'reserve_deposit': {
-        if (!action.amountCents)
-          return { reply: { text: 'Quanto você quer guardar?', intent: 'reserve.ask_amount' } };
+        if (!action.amountCents) {
+          return {
+            reply: { text: 'Quanto você quer guardar?', intent: 'reserve.ask_amount' },
+            pending: { type: 'AWAITING_AMOUNT', draft: action },
+          };
+        }
         const res = await this.reserve.deposit(userId, action.amountCents, channel);
         return {
           reply: {
@@ -115,14 +49,14 @@ export class ActionExecutorService {
           },
         };
       }
-
       case 'reserve_withdraw': {
-        if (!action.amountCents)
+        if (!action.amountCents) {
           return {
             reply: { text: 'Quanto você quer tirar da caixinha?', intent: 'reserve.ask_amount' },
+            pending: { type: 'AWAITING_AMOUNT', draft: action },
           };
+        }
         if (!action.destination) {
-          // ⚠️ regra: sempre perguntar o destino (UC-04)
           return {
             reply: {
               text: `Tirar ${formatCents(action.amountCents)} da caixinha — para onde vai esse dinheiro?`,
@@ -145,10 +79,8 @@ export class ActionExecutorService {
           },
         };
       }
-
       case 'query':
         return { reply: await this.runQuery(userId, action.type) };
-
       case 'help':
         return {
           reply: {
@@ -157,6 +89,7 @@ export class ActionExecutorService {
               'Você pode me dizer coisas como:',
               '• "ganhei 180" — registro sua receita',
               '• "paguei água 90" — registro a despesa',
+              '• "comprei um lanche no cartão nubank" — eu pergunto só o valor',
               '• "guardei 50 na caixinha" — sua reserva',
               '• "saldo" ou "quanto posso gastar?" — te conto na hora',
             ].join('\n'),
@@ -164,6 +97,144 @@ export class ActionExecutorService {
           },
         };
     }
+  }
+
+  private async executeIncome(
+    userId: string,
+    action: Extract<Action, { kind: 'income' }>,
+    channel: Channel,
+  ): Promise<{ reply: Reply; pending?: PendingState | null }> {
+    if (!action.amountCents) {
+      return {
+        reply: {
+          text: `Quanto você recebeu${action.clientName ? ` de ${action.clientName}` : ''}?`,
+          intent: 'income.ask_amount',
+        },
+        pending: { type: 'AWAITING_AMOUNT', draft: action },
+      };
+    }
+    if (!action.source) {
+      return {
+        reply: {
+          text: `Anotado ${formatCents(action.amountCents)}! De onde veio esse dinheiro?`,
+          quickReplies: ['Diária', 'PIX', 'Salário', 'Venda', 'Outro'],
+          intent: 'income.ask_source',
+        },
+        pending: {
+          type: 'AWAITING_INCOME_SOURCE',
+          amountCents: action.amountCents,
+          clientName: action.clientName,
+          note: action.note,
+        },
+      };
+    }
+    const client = action.clientName
+      ? await this.clients.findByName(userId, action.clientName)
+      : null;
+    const res = await this.incomes.create(userId, {
+      amountCents: action.amountCents,
+      source: action.source,
+      clientId: client?.id,
+      note: action.note,
+      channel,
+    });
+    return {
+      reply: {
+        text: `Receita de ${formatCents(action.amountCents)} registrada! 🎉\nSeu saldo agora é ${res.balanceFormatted}.`,
+        intent: 'income.created',
+      },
+    };
+  }
+
+  private async executeExpense(
+    userId: string,
+    action: Extract<Action, { kind: 'expense' }>,
+    channel: Channel,
+  ): Promise<{ reply: Reply; pending?: PendingState | null }> {
+    // 1. falta o valor? pergunta só o valor (mantém tudo que já sabemos)
+    if (!action.amountCents) {
+      return {
+        reply: {
+          text: `Quanto foi${action.note ? ` (${action.note})` : ''}?`,
+          intent: 'expense.ask_amount',
+        },
+        pending: { type: 'AWAITING_AMOUNT', draft: action },
+      };
+    }
+
+    // 2. falta a forma? pergunta (regra inegociável — UC-02)
+    if (!action.method) {
+      return {
+        reply: {
+          text: `Ok, ${formatCents(action.amountCents)}${action.note ? ` (${action.note})` : ''}. Como foi pago?`,
+          quickReplies: ['Dinheiro', 'PIX', 'Saldo', 'Caixinha', 'Cartão'],
+          intent: 'expense.ask_method',
+        },
+        pending: {
+          type: 'AWAITING_EXPENSE_METHOD',
+          amountCents: action.amountCents,
+          note: action.note,
+        },
+      };
+    }
+
+    // 3. cartão: resolve pelo nome; se não achar, teclado com os cartões reais
+    let cardId: string | undefined;
+    if (action.method === 'CARTAO') {
+      const names = await this.cards.listNames(userId);
+      if (names.length === 0) {
+        return {
+          reply: {
+            text: 'Você ainda não tem cartão cadastrado. 😕 Cadastre no painel (Cartões → Novo) e me chame de novo — ou me diga outra forma de pagamento.',
+            quickReplies: ['Dinheiro', 'PIX', 'Saldo', 'Caixinha'],
+            intent: 'expense.no_cards',
+          },
+          pending: {
+            type: 'AWAITING_EXPENSE_METHOD',
+            amountCents: action.amountCents,
+            note: action.note,
+          },
+        };
+      }
+      const card = action.cardName
+        ? await this.cards.findByName(userId, action.cardName)
+        : names.length === 1
+          ? await this.cards.findByName(userId, names[0]!)
+          : null;
+      if (!card) {
+        return {
+          reply: {
+            text: action.cardName
+              ? `Não encontrei o cartão "${action.cardName}". Qual desses foi?`
+              : 'Qual cartão?',
+            quickReplies: names,
+            intent: 'expense.ask_card',
+          },
+          pending: { type: 'AWAITING_CARD', amountCents: action.amountCents, note: action.note },
+        };
+      }
+      cardId = card.id;
+    }
+
+    const res = await this.expenses.create(userId, {
+      amountCents: action.amountCents,
+      method: action.method,
+      cardId,
+      note: action.note,
+      channel,
+    });
+    const extra =
+      action.method === 'CAIXINHA'
+        ? `Caixinha agora: ${(await this.reserve.getBalance(userId)).balanceFormatted}.`
+        : action.method === 'CARTAO'
+          ? 'Vai para a fatura do cartão. 💳'
+          : `Saldo disponível: ${res.balanceFormatted}.`;
+    return {
+      reply: {
+        text: `Despesa de ${formatCents(action.amountCents)} registrada (${action.method.toLowerCase()}${action.note ? ` · ${action.note}` : ''}). ✅\n${extra}`,
+        intent: 'expense.created',
+      },
+    };
   }
 
   private async runQuery(userId: string, type: string): Promise<Reply> {

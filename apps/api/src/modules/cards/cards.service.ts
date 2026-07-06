@@ -38,6 +38,28 @@ export class CardsService {
     return Promise.all(cards.map(async (c) => this.withAvailable(c)));
   }
 
+  /** Busca cartão por nome aproximado (case/acentos-insensitive) — usado pelo chat. */
+  async findByName(userId: string, name: string) {
+    const cards = await this.prisma.card.findMany({ where: tenantWhere(userId) });
+    const norm = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').trim();
+    const target = norm(name);
+    return (
+      cards.find((c) => norm(c.name) === target) ??
+      cards.find((c) => norm(c.name).includes(target) || target.includes(norm(c.name))) ??
+      null
+    );
+  }
+
+  /** Nomes dos cartões do usuário (para o teclado do chat). */
+  async listNames(userId: string): Promise<string[]> {
+    const cards = await this.prisma.card.findMany({
+      where: tenantWhere(userId),
+      select: { name: true },
+    });
+    return cards.map((c) => c.name);
+  }
+
   async getById(userId: string, id: string) {
     const card = await this.prisma.card.findFirst({ where: tenantWhere(userId, { id }) });
     if (!card) throw new NotFoundException('Cartão não encontrado.');
