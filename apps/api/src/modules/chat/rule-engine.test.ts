@@ -165,4 +165,23 @@ describe('Motor de regras sem IA (docs/08)', () => {
   it('novo cartão → new_card sem nome', () => {
     expect(matchRule('novo cartão')).toEqual({ kind: 'new_card' });
   });
+
+  // ── gastos fixos em massa ──
+
+  it('lista de contas (várias linhas) → bulk_bills', () => {
+    const action = matchRule('Faculdade 700\nInternet 156\nClaro 89\nNetflix 55');
+    expect(action).toMatchObject({ kind: 'bulk_bills' });
+    const items = (action as { items: { name: string; amountCents: number }[] }).items;
+    expect(items).toHaveLength(4);
+    expect(items[0]).toEqual({ name: 'Faculdade', amountCents: 70000 });
+    expect(items[3]).toEqual({ name: 'Netflix', amountCents: 5500 });
+  });
+
+  it('uma linha só não vira bulk (é comando normal)', () => {
+    expect(matchRule('paguei 90 de agua')).toMatchObject({ kind: 'expense' });
+  });
+
+  it('linhas sem valor não viram bulk', () => {
+    expect(matchRule('oi tudo bem\ncomo vai')).toBeNull();
+  });
 });

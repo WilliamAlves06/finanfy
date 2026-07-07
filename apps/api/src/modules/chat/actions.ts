@@ -27,6 +27,7 @@ export type Action =
     }
   | { kind: 'new_card'; name?: string }
   | { kind: 'undo_last' }
+  | { kind: 'bulk_bills'; items: { name: string; amountCents: number }[] }
   | { kind: 'help' };
 
 /**

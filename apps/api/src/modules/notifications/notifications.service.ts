@@ -66,7 +66,21 @@ export class NotificationsService {
         { chargeId: charge.id },
       );
     }
-    return charges.length;
+
+    // alerta de saldo baixo/negativo (saldo materializado torna a busca barata)
+    const lowBalance = await this.prisma.user.findMany({
+      where: { deletedAt: null, balanceCents: { lt: 0 }, email: { not: 'system@finanfy.local' } },
+      select: { id: true, balanceCents: true },
+    });
+    for (const u of lowBalance) {
+      await this.notify(
+        u.id,
+        'NEGATIVE_BALANCE',
+        `Atenção: seu saldo está negativo (${formatCents(u.balanceCents)}). 😬 Bora ver o que dá pra ajustar?`,
+      );
+    }
+
+    return charges.length + lowBalance.length;
   }
 
   /** Dia 1 de cada mês, 06:00 — gera as cobranças recorrentes (idempotente). */

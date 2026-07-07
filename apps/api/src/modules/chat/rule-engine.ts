@@ -41,7 +41,35 @@ function extractNote(text: string): string | undefined {
   return note || undefined;
 }
 
+/**
+ * Detecta uma lista de gastos fixos: 2+ linhas no formato "Nome valor".
+ * Ex.: "Faculdade 700\nInternet 156\nClaro 89". Retorna null se não casar.
+ */
+function parseBulkBills(rawText: string): Action | null {
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return null;
+
+  const items: { name: string; amountCents: number }[] = [];
+  for (const line of lines) {
+    const m = line.match(/^(.+?)\s+r?\$?\s*([\d.,]+)$/i);
+    if (!m) return null; // toda linha precisa casar, senão não é uma lista
+    const cents = parseBRLToCents(m[2]!);
+    const name = m[1]!.trim();
+    if (!cents || name.length < 2) return null;
+    items.push({ name, amountCents: cents });
+  }
+  return { kind: 'bulk_bills', items };
+}
+
 export function matchRule(rawText: string): Action | null {
+  // cadastro em massa de gastos fixos: 2+ linhas "Nome valor" (usa rawText,
+  // antes de normalizar, para preservar quebras de linha)
+  const bulk = parseBulkBills(rawText);
+  if (bulk) return bulk;
+
   const text = normalizeText(rawText);
   const cents = parseBRLToCents(text);
 

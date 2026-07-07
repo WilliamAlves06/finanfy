@@ -4,6 +4,7 @@ import { CardsService } from '../cards/cards.service';
 import { ClientsService } from '../clients/clients.service';
 import { ExpensesService } from '../expenses/expenses.service';
 import { IncomesService } from '../incomes/incomes.service';
+import { RecurringService } from '../recurring/recurring.service';
 import { ReportsService } from '../reports/reports.service';
 import { ReserveService } from '../reserve/reserve.service';
 import { Action, Channel, PendingState, Reply } from './actions';
@@ -22,6 +23,7 @@ export class ActionExecutorService {
     private readonly reports: ReportsService,
     private readonly clients: ClientsService,
     private readonly cards: CardsService,
+    private readonly recurring: RecurringService,
   ) {}
 
   async execute(
@@ -83,6 +85,24 @@ export class ActionExecutorService {
         return { reply: await this.runQuery(userId, action.type) };
       case 'undo_last':
         return this.askUndoLast(userId);
+      case 'bulk_bills': {
+        const created: string[] = [];
+        for (const item of action.items) {
+          await this.recurring.createBill(userId, {
+            name: item.name,
+            amountCents: item.amountCents,
+            dueDay: 10, // padrão; ajustável no painel
+          });
+          created.push(`• ${item.name}: ${formatCents(item.amountCents)}`);
+        }
+        const total = action.items.reduce((s, i) => s + i.amountCents, 0);
+        return {
+          reply: {
+            text: `Prontinho! Cadastrei ${created.length} contas fixas: 📋\n${created.join('\n')}\n\nTotal por mês: ${formatCents(total)}. (Vencimento no dia 10 — dá pra ajustar no painel.)`,
+            intent: 'bulk_bills.created',
+          },
+        };
+      }
       case 'new_card': {
         if (action.name) {
           return {
