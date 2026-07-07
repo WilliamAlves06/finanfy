@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, Matches } from 'class-validator';
@@ -43,6 +53,21 @@ export class GoalsController {
   @Get()
   list(@CurrentUser() userId: string) {
     return this.goals.list(userId);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentUser() userId: string,
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateGoalDto>,
+  ) {
+    return this.goals.update(userId, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@CurrentUser() userId: string, @Param('id') id: string) {
+    return this.goals.remove(userId, id);
   }
 
   @Post(':id/contributions')

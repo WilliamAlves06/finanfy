@@ -147,6 +147,32 @@ export class CardsService {
     return { firstInstallmentId };
   }
 
+  async update(
+    userId: string,
+    id: string,
+    data: Partial<{ name: string; limitCents: number; closingDay: number; dueDay: number }>,
+  ) {
+    const existing = await this.prisma.card.findFirst({ where: tenantWhere(userId, { id }) });
+    if (!existing) throw new NotFoundException('Cartão não encontrado.');
+    const card = await this.prisma.card.update({ where: { id }, data });
+    await this.audit.log({
+      userId,
+      action: 'card.update',
+      entity: 'Card',
+      entityId: id,
+      before: existing,
+      after: card,
+    });
+    return card;
+  }
+
+  async remove(userId: string, id: string) {
+    const existing = await this.prisma.card.findFirst({ where: tenantWhere(userId, { id }) });
+    if (!existing) throw new NotFoundException('Cartão não encontrado.');
+    await this.prisma.card.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.audit.log({ userId, action: 'card.delete', entity: 'Card', entityId: id });
+  }
+
   listInvoices(userId: string, cardId: string) {
     return this.prisma.invoice.findMany({
       where: { cardId, card: { userId }, deletedAt: null },

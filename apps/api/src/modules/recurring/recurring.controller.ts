@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -60,6 +71,21 @@ export class RecurringController {
   @Get('recurring-bills')
   listBills(@CurrentUser() userId: string) {
     return this.recurring.listBills(userId);
+  }
+
+  @Patch('recurring-bills/:id')
+  updateBill(
+    @CurrentUser() userId: string,
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateBillDto>,
+  ) {
+    return this.recurring.updateBill(userId, id, dto);
+  }
+
+  @Delete('recurring-bills/:id')
+  @HttpCode(204)
+  removeBill(@CurrentUser() userId: string, @Param('id') id: string) {
+    return this.recurring.removeBill(userId, id);
   }
 
   @Get('recurring-charges')

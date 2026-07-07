@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsPositive, IsString, Matches } from 'class-validator';
@@ -44,6 +55,13 @@ export class IncomesController {
   @Post()
   create(@CurrentUser() userId: string, @Body() dto: CreateIncomeDto) {
     return this.incomes.create(userId, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@CurrentUser() userId: string, @Param('id') id: string) {
+    const removed = await this.incomes.remove(userId, id);
+    if (!removed) throw new NotFoundException('Receita não encontrada.');
   }
 
   @Get()

@@ -39,6 +39,45 @@ export class RecurringService {
     return this.prisma.recurringBill.findMany({ where: tenantWhere(userId, { active: true }) });
   }
 
+  async updateBill(
+    userId: string,
+    id: string,
+    data: Partial<{ name: string; amountCents: number; dueDay: number; categoryId: string }>,
+  ) {
+    const existing = await this.prisma.recurringBill.findFirst({
+      where: tenantWhere(userId, { id }),
+    });
+    if (!existing) throw new NotFoundException('Conta não encontrada.');
+    const bill = await this.prisma.recurringBill.update({ where: { id }, data });
+    await this.audit.log({
+      userId,
+      action: 'recurringBill.update',
+      entity: 'RecurringBill',
+      entityId: id,
+      before: existing,
+      after: bill,
+    });
+    return bill;
+  }
+
+  async removeBill(userId: string, id: string) {
+    const existing = await this.prisma.recurringBill.findFirst({
+      where: tenantWhere(userId, { id }),
+    });
+    if (!existing) throw new NotFoundException('Conta não encontrada.');
+    // desativa e some da lista; cobranças já geradas continuam (histórico)
+    await this.prisma.recurringBill.update({
+      where: { id },
+      data: { active: false, deletedAt: new Date() },
+    });
+    await this.audit.log({
+      userId,
+      action: 'recurringBill.delete',
+      entity: 'RecurringBill',
+      entityId: id,
+    });
+  }
+
   listCharges(userId: string, status?: 'PENDING' | 'PAID' | 'OVERDUE') {
     return this.prisma.recurringCharge.findMany({
       where: {

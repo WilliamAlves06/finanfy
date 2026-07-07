@@ -49,6 +49,39 @@ export class GoalsService {
     });
   }
 
+  async update(
+    userId: string,
+    id: string,
+    data: Partial<{ name: string; targetCents: number; deadline: string }>,
+  ) {
+    const existing = await this.prisma.goal.findFirst({ where: tenantWhere(userId, { id }) });
+    if (!existing) throw new NotFoundException('Meta não encontrada.');
+    const goal = await this.prisma.goal.update({
+      where: { id },
+      data: {
+        name: data.name,
+        targetCents: data.targetCents,
+        deadline: data.deadline ? new Date(`${data.deadline}T00:00:00.000Z`) : undefined,
+      },
+    });
+    await this.audit.log({
+      userId,
+      action: 'goal.update',
+      entity: 'Goal',
+      entityId: id,
+      before: existing,
+      after: goal,
+    });
+    return goal;
+  }
+
+  async remove(userId: string, id: string) {
+    const existing = await this.prisma.goal.findFirst({ where: tenantWhere(userId, { id }) });
+    if (!existing) throw new NotFoundException('Meta não encontrada.');
+    await this.prisma.goal.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.audit.log({ userId, action: 'goal.delete', entity: 'Goal', entityId: id });
+  }
+
   async contribute(userId: string, goalId: string, amountCents: number) {
     const goal = await this.prisma.goal.findFirst({ where: tenantWhere(userId, { id: goalId }) });
     if (!goal) throw new NotFoundException('Meta não encontrada.');

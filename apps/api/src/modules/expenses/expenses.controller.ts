@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsPositive, IsString, Max, Min } from 'class-validator';
@@ -47,6 +58,13 @@ export class ExpensesController {
   @Post()
   create(@CurrentUser() userId: string, @Body() dto: CreateExpenseDto) {
     return this.expenses.create(userId, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@CurrentUser() userId: string, @Param('id') id: string) {
+    const removed = await this.expenses.remove(userId, id);
+    if (!removed) throw new NotFoundException('Despesa não encontrada.');
   }
 
   @Get()

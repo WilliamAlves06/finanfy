@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsNotEmpty, IsString } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -29,6 +39,11 @@ export class CategoriesController {
   @Post()
   create(@CurrentUser() userId: string, @Body() dto: CreateCategoryDto) {
     return this.categories.create(userId, dto);
+  }
+
+  @Patch(':id')
+  update(@CurrentUser() userId: string, @Param('id') id: string, @Body() dto: { name: string }) {
+    return this.categories.update(userId, id, { name: dto.name });
   }
 
   @Delete(':id')

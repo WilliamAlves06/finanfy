@@ -51,9 +51,20 @@ export default function DashboardPage() {
     <main className="mx-auto max-w-3xl p-4">
       <header className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-emerald-600">Painel</h1>
-        <Link className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white" href="/chat">
-          💬 Conversar com o Fin
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            className="rounded-xl border border-emerald-600 px-4 py-2 font-semibold text-emerald-700"
+            href="/gerenciar"
+          >
+            ⚙️ Gerenciar
+          </Link>
+          <Link
+            className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white"
+            href="/chat"
+          >
+            💬 Fin
+          </Link>
+        </div>
       </header>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

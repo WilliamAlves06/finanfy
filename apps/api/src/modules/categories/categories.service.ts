@@ -35,6 +35,23 @@ export class CategoriesService {
     return category;
   }
 
+  async update(userId: string, id: string, data: { name: string }) {
+    const category = await this.prisma.category.findFirst({ where: tenantWhere(userId, { id }) });
+    if (!category) throw new NotFoundException('Categoria não encontrada.');
+    if (category.isDefault)
+      throw new ForbiddenException('Categorias padrão não podem ser editadas.');
+    const updated = await this.prisma.category.update({ where: { id }, data });
+    await this.audit.log({
+      userId,
+      action: 'category.update',
+      entity: 'Category',
+      entityId: id,
+      before: category,
+      after: updated,
+    });
+    return updated;
+  }
+
   async remove(userId: string, id: string) {
     const category = await this.prisma.category.findFirst({
       where: tenantWhere(userId, { id }),
