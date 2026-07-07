@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { formatCents, todayISO } from '../../common/utils/dates';
+import { CardsService } from '../cards/cards.service';
 
 /**
  * UC-10 — Relatórios (CQRS: só leitura, sem efeito colateral).
@@ -9,7 +10,10 @@ import { formatCents, todayISO } from '../../common/utils/dates';
  */
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cards: CardsService,
+  ) {}
 
   private monthRange(month?: string) {
     const [y, m] = (month ?? todayISO().slice(0, 7)).split('-').map(Number) as [number, number];
@@ -102,6 +106,126 @@ export class ReportsService {
       orderBy: { dueDate: 'asc' },
       include: { recurringBill: { select: { name: true } } },
     });
+  }
+
+  /** Gasto por categoria no mês (para gráfico do dashboard/relatório completo). */
+  async expensesByCategory(userId: string, month?: string) {
+    const date = this.monthRange(month);
+    const grouped = await this.prisma.expense.groupBy({
+      by: ['categoryId'],
+      where: { userId, deletedAt: null, date },
+      _sum: { amountCents: true },
+      orderBy: { _sum: { amountCents: 'desc' } },
+    });
+    const catIds = grouped.map((g) => g.categoryId).filter((id): id is string => Boolean(id));
+    const cats = await this.prisma.category.findMany({ where: { id: { in: catIds } } });
+    const nameOf = (id: string | null) => cats.find((c) => c.id === id)?.name ?? 'Sem categoria';
+    return grouped.map((g) => ({
+      category: nameOf(g.categoryId),
+      cents: g._sum.amountCents ?? 0,
+      formatted: formatCents(g._sum.amountCents ?? 0),
+    }));
+  }
+
+  /** Próximas contas a vencer (pendentes/atrasadas), ordenadas por vencimento. */
+  async upcomingBills(userId: string, take = 5) {
+    const charges = await this.prisma.recurringCharge.findMany({
+      where: { recurringBill: { userId }, status: { in: ['PENDING', 'OVERDUE'] }, deletedAt: null },
+      orderBy: { dueDate: 'asc' },
+      take,
+      include: { recurringBill: { select: { name: true } } },
+    });
+    return charges.map((c) => ({
+      id: c.id,
+      name: c.recurringBill.name,
+      cents: c.amountCents,
+      formatted: formatCents(c.amountCents),
+      dueDate: c.dueDate.toISOString().slice(0, 10),
+      overdue: c.status === 'OVERDUE',
+    }));
+  }
+
+  /** Últimas movimentações (receitas + despesas mescladas por data). */
+  async recentMovements(userId: string, take = 8) {
+    const [incomes, expenses] = await Promise.all([
+      this.prisma.income.findMany({
+        where: { userId, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take,
+        include: { category: { select: { name: true } } },
+      }),
+      this.prisma.expense.findMany({
+        where: { userId, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take,
+        include: { category: { select: { name: true } } },
+      }),
+    ]);
+    const items = [
+      ...incomes.map((i) => ({
+        type: 'income' as const,
+        cents: i.amountCents,
+        formatted: formatCents(i.amountCents),
+        label: i.source,
+        note: i.note ?? null,
+        at: i.createdAt.toISOString(),
+      })),
+      ...expenses.map((e) => ({
+        type: 'expense' as const,
+        cents: e.amountCents,
+        formatted: formatCents(e.amountCents),
+        label: e.category?.name ?? e.method,
+        note: e.note ?? null,
+        at: e.createdAt.toISOString(),
+      })),
+    ];
+    return items.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, take);
+  }
+
+  /**
+   * Painel completo em UMA consulta agregada (reduz round-trips — performance).
+   * Inclui receita diária média e saldo previsto para o fim do mês.
+   */
+  async dashboard(userId: string) {
+    const [summary, monthly, canSpend, byCategory, upcoming, recent, cards] = await Promise.all([
+      this.summary(userId),
+      this.monthly(userId),
+      this.canSpend(userId),
+      this.expensesByCategory(userId),
+      this.upcomingBills(userId),
+      this.recentMovements(userId),
+      this.cards.list(userId),
+    ]);
+
+    // média diária de receita e saldo previsto p/ fim do mês
+    const now = new Date();
+    const dayOfMonth = Number(todayISO().slice(8, 10));
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysLeft = daysInMonth - dayOfMonth;
+    const dailyAvgIncomeCents = Math.round(monthly.incomeCents / Math.max(1, dayOfMonth));
+    const forecastCents =
+      summary.balanceCents + dailyAvgIncomeCents * daysLeft - summary.pendingBillsCents;
+
+    return {
+      summary,
+      monthly,
+      canSpend,
+      byCategory,
+      upcoming,
+      recent,
+      cards: cards.map((c) => {
+        const card = c as typeof c & { name: string };
+        return {
+          id: card.id,
+          name: card.name,
+          limitFormatted: formatCents(card.limitCents),
+          availableFormatted: card.availableFormatted,
+          usedFormatted: formatCents(card.usedCents),
+        };
+      }),
+      dailyAvgIncomeFormatted: formatCents(dailyAvgIncomeCents),
+      forecastFormatted: formatCents(forecastCents),
+    };
   }
 
   /** "Quanto economizei este ano?" = total guardado na caixinha no ano. */

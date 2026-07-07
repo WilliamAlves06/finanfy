@@ -11,6 +11,22 @@ import { ReportsService } from './reports.service';
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
+  /** Painel completo em uma chamada só (o front usa este). */
+  @Get('dashboard')
+  dashboard(@CurrentUser() userId: string) {
+    return this.reports.dashboard(userId);
+  }
+
+  @Get('by-category')
+  byCategory(@CurrentUser() userId: string, @Query('month') month?: string) {
+    return this.reports.expensesByCategory(userId, month);
+  }
+
+  @Get('upcoming')
+  upcoming(@CurrentUser() userId: string) {
+    return this.reports.upcomingBills(userId);
+  }
+
   @Get('summary')
   summary(@CurrentUser() userId: string) {
     return this.reports.summary(userId);
