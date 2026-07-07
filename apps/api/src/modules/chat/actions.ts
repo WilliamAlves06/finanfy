@@ -26,6 +26,7 @@ export type Action =
       type: 'saldo' | 'posso_gastar' | 'mensal' | 'vencidas' | 'reserva' | 'economia';
     }
   | { kind: 'new_card'; name?: string }
+  | { kind: 'undo_last' }
   | { kind: 'help' };
 
 /**
@@ -45,7 +46,9 @@ export type PendingState =
       step: 'NAME' | 'LIMIT' | 'CLOSING' | 'DUE';
       draft: { name?: string; limitCents?: number; closingDay?: number };
       thenExpense?: { amountCents: number; note?: string };
-    };
+    }
+  // confirmação antes de apagar o último lançamento
+  | { type: 'AWAITING_UNDO_CONFIRM'; target: { kind: 'income' | 'expense'; id: string } };
 
 export interface Reply {
   text: string;

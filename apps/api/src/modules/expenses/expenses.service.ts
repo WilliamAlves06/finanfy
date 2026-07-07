@@ -112,6 +112,75 @@ export class ExpensesService {
     return { ...result, balanceFormatted: formatCents(result.balanceCents) };
   }
 
+  /** Última despesa registrada (para o "desfazer" do chat). */
+  findLast(userId: string) {
+    return this.prisma.expense.findFirst({
+      where: tenantWhere(userId),
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Desfaz uma despesa: reverte o efeito conforme o método + soft delete. */
+  async remove(userId: string, id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.findFirst({ where: tenantWhere(userId, { id }) });
+      if (!expense) return null;
+
+      switch (expense.method) {
+        case 'SALDO':
+        case 'PIX':
+        case 'DINHEIRO':
+          await tx.user.update({
+            where: { id: userId },
+            data: { balanceCents: { increment: expense.amountCents } },
+          });
+          break;
+        case 'CAIXINHA': {
+          const reserve = await tx.reserve.findUnique({ where: { userId } });
+          if (reserve) {
+            await tx.reserve.update({
+              where: { userId },
+              data: { balanceCents: { increment: expense.amountCents } },
+            });
+            await tx.reserveMovement.create({
+              data: {
+                reserveId: reserve.id,
+                type: 'IN',
+                amountCents: expense.amountCents,
+                reason: 'estorno de despesa',
+              },
+            });
+          }
+          break;
+        }
+        case 'CARTAO':
+          if (expense.installmentId) {
+            const inst = await tx.installment.findUnique({ where: { id: expense.installmentId } });
+            if (inst?.invoiceId) {
+              await tx.invoice.update({
+                where: { id: inst.invoiceId },
+                data: { totalCents: { decrement: inst.amountCents } },
+              });
+            }
+            if (inst) {
+              await tx.installment.update({
+                where: { id: inst.id },
+                data: { deletedAt: new Date() },
+              });
+            }
+          }
+          break;
+      }
+
+      await tx.expense.update({ where: { id }, data: { deletedAt: new Date() } });
+      await this.audit.log(
+        { userId, action: 'expense.delete', entity: 'Expense', entityId: id, before: expense },
+        tx,
+      );
+      return expense;
+    });
+  }
+
   list(
     userId: string,
     opts: { from?: string; to?: string; page?: number; pageSize?: number } = {},

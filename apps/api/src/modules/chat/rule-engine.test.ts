@@ -143,4 +143,26 @@ describe('Motor de regras sem IA (docs/08)', () => {
       source: 'DIARIA',
     });
   });
+
+  // ── desfazer último lançamento ──
+
+  it.each(['desfazer', 'desfaz isso', 'apagar', 'errei', 'apaga o ultimo'])(
+    '"%s" → undo_last',
+    (text) => {
+      expect(matchRule(text)).toEqual({ kind: 'undo_last' });
+    },
+  );
+
+  // ── cadastrar cartão ──
+
+  it('cadastrar cartão nubank → new_card com nome', () => {
+    expect(matchRule('cadastrar cartão nubank')).toMatchObject({
+      kind: 'new_card',
+      name: 'nubank',
+    });
+  });
+
+  it('novo cartão → new_card sem nome', () => {
+    expect(matchRule('novo cartão')).toEqual({ kind: 'new_card' });
+  });
 });

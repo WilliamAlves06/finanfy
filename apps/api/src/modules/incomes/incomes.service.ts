@@ -104,6 +104,32 @@ export class IncomesService {
     });
   }
 
+  /** Última receita registrada (para o "desfazer" do chat). */
+  findLast(userId: string) {
+    return this.prisma.income.findFirst({
+      where: tenantWhere(userId),
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Desfaz uma receita: soft delete + reverte o saldo. */
+  async remove(userId: string, id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const income = await tx.income.findFirst({ where: tenantWhere(userId, { id }) });
+      if (!income) return null;
+      await tx.income.update({ where: { id }, data: { deletedAt: new Date() } });
+      await tx.user.update({
+        where: { id: userId },
+        data: { balanceCents: { decrement: income.amountCents } },
+      });
+      await this.audit.log(
+        { userId, action: 'income.delete', entity: 'Income', entityId: id, before: income },
+        tx,
+      );
+      return income;
+    });
+  }
+
   /** True se o usuário registrou alguma receita hoje (usado pela notificação 18h). */
   async hasIncomeToday(userId: string): Promise<boolean> {
     const count = await this.prisma.income.count({

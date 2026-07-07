@@ -62,6 +62,23 @@ export class ChatService {
         return this.newCardStep(conversationId, userId, pending, text, channel);
       }
 
+      // confirmação de apagar o último lançamento
+      if (pending.type === 'AWAITING_UNDO_CONFIRM') {
+        const t = normalizeText(text);
+        if (/(sim|apagar|isso|pode|confirmar?|isso mesmo|ss|aham)/.test(t)) {
+          await this.savePending(conversationId, null);
+          return this.executor.confirmUndo(userId, pending.target);
+        }
+        if (/(nao|deixa|cancelar|para|melhor nao)/.test(t)) {
+          await this.savePending(conversationId, null);
+          return { text: 'Beleza, deixei como estava. 👍', intent: 'undo.cancelled' };
+        }
+        return {
+          text: 'Só confirmando: quer apagar? Responda "sim" ou "não".',
+          intent: 'undo.confirm',
+        };
+      }
+
       // no "qual cartão?", a opção de cadastrar um novo entra no assistente
       if (pending.type === 'AWAITING_CARD' && /(novo cartao|cadastrar)/.test(normalizeText(text))) {
         const name = pending.suggestedName;
@@ -126,7 +143,7 @@ export class ChatService {
     }
 
     return {
-      text: 'Não entendi. 🙈 Você pode dizer, por exemplo: "ganhei 180", "paguei água 90" ou "saldo". Digite "ajuda" para ver tudo que eu sei fazer.',
+      text: 'Hmm, não peguei essa. 🤔 Tenta assim: "ganhei 180", "paguei 90 de água" ou "saldo". Se quiser, é só digitar "ajuda".',
       intent: 'miss',
     };
   }
@@ -324,7 +341,8 @@ export class ChatService {
       }
 
       case 'NEW_CARD':
-        return null; // tratado antes, em newCardStep()
+      case 'AWAITING_UNDO_CONFIRM':
+        return null; // tratados antes, no route()
     }
   }
 
@@ -351,6 +369,8 @@ export class ChatService {
         return { kind: 'reserve_withdraw', amountCents: pending.amountCents };
       case 'NEW_CARD':
         return { kind: 'new_card', name: pending.draft.name };
+      case 'AWAITING_UNDO_CONFIRM':
+        return { kind: 'undo_last' };
     }
   }
 

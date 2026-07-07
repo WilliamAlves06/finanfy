@@ -81,6 +81,8 @@ export class ActionExecutorService {
       }
       case 'query':
         return { reply: await this.runQuery(userId, action.type) };
+      case 'undo_last':
+        return this.askUndoLast(userId);
       case 'new_card': {
         if (action.name) {
           return {
@@ -158,7 +160,7 @@ export class ActionExecutorService {
     });
     return {
       reply: {
-        text: `Receita de ${formatCents(action.amountCents)} registrada! 🎉\nSeu saldo agora é ${res.balanceFormatted}.`,
+        text: `Boa! Anotei ${formatCents(action.amountCents)} que você recebeu. 🎉\nSeu saldo agora é ${res.balanceFormatted}.`,
         intent: 'income.created',
       },
     };
@@ -233,8 +235,8 @@ export class ActionExecutorService {
         return {
           reply: {
             text: action.cardName
-              ? `Não encontrei o cartão "${action.cardName}". Qual desses foi?`
-              : 'Qual cartão?',
+              ? `Não achei o cartão "${action.cardName}" aqui. Qual desses você usou?`
+              : 'Qual cartão você usou?',
             quickReplies: [
               ...names,
               action.cardName ? `Cadastrar "${action.cardName}"` : 'Novo cartão',
@@ -267,10 +269,62 @@ export class ActionExecutorService {
           : `Saldo disponível: ${res.balanceFormatted}.`;
     return {
       reply: {
-        text: `Despesa de ${formatCents(action.amountCents)} registrada (${action.method.toLowerCase()}${action.note ? ` · ${action.note}` : ''}). ✅\n${extra}`,
+        text: `Prontinho! Registrei ${action.note ? `"${action.note}" ` : ''}${formatCents(action.amountCents)} no ${action.method.toLowerCase()}. ✅\n${extra}`,
         intent: 'expense.created',
       },
     };
+  }
+
+  /** Acha o último lançamento (receita ou despesa) e pede confirmação p/ apagar. */
+  private async askUndoLast(
+    userId: string,
+  ): Promise<{ reply: Reply; pending?: PendingState | null }> {
+    const [lastIncome, lastExpense] = await Promise.all([
+      this.incomes.findLast(userId),
+      this.expenses.findLast(userId),
+    ]);
+
+    if (!lastIncome && !lastExpense) {
+      return {
+        reply: {
+          text: 'Não achei nenhum lançamento recente pra desfazer. 🤔',
+          intent: 'undo.empty',
+        },
+      };
+    }
+
+    const incomeNewer =
+      lastIncome && (!lastExpense || lastIncome.createdAt > lastExpense.createdAt);
+    const target = incomeNewer
+      ? { kind: 'income' as const, id: lastIncome!.id }
+      : { kind: 'expense' as const, id: lastExpense!.id };
+    const desc = incomeNewer
+      ? `a receita de ${formatCents(lastIncome!.amountCents)} (${lastIncome!.source.toLowerCase()})`
+      : `a despesa de ${formatCents(lastExpense!.amountCents)}${lastExpense!.note ? ` (${lastExpense!.note})` : ''}`;
+
+    return {
+      reply: {
+        text: `Quer que eu apague ${desc}? Isso não dá pra voltar depois.`,
+        quickReplies: ['Sim, apagar', 'Não'],
+        intent: 'undo.confirm',
+      },
+      pending: { type: 'AWAITING_UNDO_CONFIRM', target },
+    };
+  }
+
+  /** Executa o desfazer confirmado. */
+  async confirmUndo(
+    userId: string,
+    target: { kind: 'income' | 'expense'; id: string },
+  ): Promise<Reply> {
+    const removed =
+      target.kind === 'income'
+        ? await this.incomes.remove(userId, target.id)
+        : await this.expenses.remove(userId, target.id);
+    if (!removed) {
+      return { text: 'Esse lançamento não está mais por aqui. 🤷', intent: 'undo.gone' };
+    }
+    return { text: 'Pronto, apaguei pra você! 🧹 Já ajustei o seu saldo.', intent: 'undo.done' };
   }
 
   private async runQuery(userId: string, type: string): Promise<Reply> {

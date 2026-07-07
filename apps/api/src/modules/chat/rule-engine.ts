@@ -109,6 +109,16 @@ export function matchRule(rawText: string): Action | null {
     };
   }
 
+  // desfazer/apagar o último lançamento ("desfazer", "apaguei errado", "errei")
+  if (
+    /^(desfazer|desfaz|apagar|apaga|excluir)$/.test(text) ||
+    /\b(desfazer|desfaz)\b/.test(text) ||
+    /\berrei\b/.test(text) ||
+    /\b(apagar|apaga|excluir|cancelar)\s+(o\s+)?(ultim|isso|essa|esse|esse lancamento)/.test(text)
+  ) {
+    return { kind: 'undo_last' };
+  }
+
   // 6. cadastrar cartão ("cadastrar cartão nubank", "novo cartão")
   const newCard = text.match(/\b(?:cadastrar|criar|adicionar|novo)\s+cart[ao]o\s*([a-z0-9 ]*)/);
   if (newCard) {
